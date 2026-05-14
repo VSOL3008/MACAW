@@ -1,0 +1,4645 @@
+@import "@macaw/ui/styles/tailwind";
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    background: #050816;
+    color: #f5f7fb;
+    font-family:
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  @keyframes session-progress-whip {
+    0% {
+      clip-path: inset(0 100% 0 0 round 999px);
+      animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    48% {
+      clip-path: inset(0 0 0 0 round 999px);
+      animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+    }
+
+    100% {
+      clip-path: inset(0 0 0 100% round 999px);
+    }
+  }
+
+  [data-component="session-progress"] {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 2px;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 220ms ease-out;
+  }
+
+  [data-component="session-progress"][data-state="hiding"] {
+    opacity: 0;
+  }
+
+  [data-component="session-progress-bar"] {
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--session-progress-color);
+    clip-path: inset(0 100% 0 0 round 999px);
+    animation: session-progress-whip var(--session-progress-ms, 1800ms) infinite;
+    will-change: clip-path;
+  }
+
+  [data-component="getting-started"] {
+    container-type: inline-size;
+    container-name: getting-started;
+  }
+
+  [data-component="getting-started-actions"] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem; /* gap-3 */
+  }
+
+  [data-component="getting-started-actions"] > [data-component="button"] {
+    width: 100%;
+  }
+
+  @container getting-started (min-width: 17rem) {
+    [data-component="getting-started-actions"] {
+      flex-direction: row;
+      align-items: center;
+    }
+
+    [data-component="getting-started-actions"] > [data-component="button"] {
+      width: auto;
+    }
+  }
+
+  .macaw-shell {
+    display: grid;
+    min-height: 100vh;
+    grid-template-columns: 18rem minmax(0, 1fr) 24rem;
+    background:
+      radial-gradient(circle at top, rgba(97, 124, 255, 0.18), transparent 30%),
+      linear-gradient(180deg, #07101f 0%, #040813 100%);
+  }
+
+  .macaw-side,
+  .macaw-pane {
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
+    gap: 1rem;
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(8, 14, 28, 0.82);
+    padding: 1.25rem;
+    backdrop-filter: blur(18px);
+  }
+
+  .macaw-side {
+    border-right-width: 1px;
+  }
+
+  .macaw-pane {
+    border-left-width: 1px;
+  }
+
+  .macaw-main {
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    position: relative;
+  }
+
+  .macaw-brand,
+  .macaw-block,
+  .macaw-compose,
+  .macaw-foot,
+  .macaw-pane-head,
+  .macaw-selects,
+  .macaw-tabs,
+  .macaw-error,
+  .macaw-error-screen {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(12, 18, 34, 0.92);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+  }
+
+  .macaw-brand,
+  .macaw-block,
+  .macaw-pane-head,
+  .macaw-selects,
+  .macaw-compose,
+  .macaw-foot,
+  .macaw-error,
+  .macaw-error-screen {
+    border-radius: 1rem;
+  }
+
+  .macaw-brand,
+  .macaw-block,
+  .macaw-pane-head,
+  .macaw-selects,
+  .macaw-compose,
+  .macaw-foot {
+    padding: 1rem;
+  }
+
+  .macaw-mark {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+  }
+
+  .macaw-sub,
+  .macaw-note,
+  .macaw-url,
+  .macaw-item-time,
+  .macaw-empty,
+  .macaw-step p,
+  .macaw-tool p {
+    color: rgba(226, 232, 240, 0.72);
+  }
+
+  .macaw-sub,
+  .macaw-label,
+  .macaw-pane-state,
+  .macaw-select span,
+  .macaw-turn-head,
+  .macaw-item-time,
+  .macaw-note,
+  .macaw-url,
+  .macaw-empty {
+    font-size: 0.82rem;
+  }
+
+  .macaw-label {
+    margin-bottom: 0.75rem;
+    color: rgba(186, 201, 255, 0.92);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .macaw-block.grow {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .macaw-search {
+    width: 100%;
+    margin-bottom: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.65rem;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 0.45rem 0.65rem;
+    color: inherit;
+    font-size: 0.82rem;
+    outline: none;
+  }
+
+  .macaw-search:focus {
+    border-color: rgba(126, 155, 255, 0.52);
+  }
+
+  .macaw-new,
+  .macaw-example,
+  .macaw-attach,
+  .macaw-send,
+  .macaw-tabs button,
+  .macaw-item {
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      transform 160ms ease,
+      color 160ms ease;
+  }
+
+  .macaw-new,
+  .macaw-attach,
+  .macaw-send,
+  .macaw-tabs button {
+    cursor: pointer;
+    border: 0;
+  }
+
+  .macaw-new {
+    width: 100%;
+    border-radius: 0.85rem;
+    background: linear-gradient(135deg, #617cff 0%, #7b5cff 100%);
+    padding: 0.8rem 0.95rem;
+    color: white;
+    font-weight: 600;
+  }
+
+  .macaw-new:hover,
+  .macaw-attach:hover,
+  .macaw-send:hover,
+  .macaw-example:hover,
+  .macaw-tabs button:hover,
+  .macaw-item:hover {
+    transform: translateY(-1px);
+  }
+
+  .macaw-list {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.55rem;
+    overflow-y: auto;
+  }
+
+  .macaw-item {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.95rem;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.85rem 0.9rem;
+    color: inherit;
+    text-align: left;
+  }
+
+  .macaw-item.active {
+    border-color: rgba(126, 155, 255, 0.55);
+    background: rgba(95, 113, 255, 0.16);
+  }
+
+  .macaw-item-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.92rem;
+    font-weight: 600;
+  }
+
+  .macaw-item-running {
+    flex-shrink: 0;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: rgb(96, 214, 255);
+    box-shadow: 0 0 0 0 rgba(96, 214, 255, 0.6);
+    animation: macaw-pulse 1.4s ease-out infinite;
+    cursor: pointer;
+    transition:
+      background 140ms ease,
+      border-radius 140ms ease;
+  }
+
+  .macaw-item-running:hover {
+    background: rgb(255, 95, 115);
+    border-radius: 0.15rem;
+    animation-play-state: paused;
+    box-shadow: 0 0 0 2px rgba(255, 95, 115, 0.25);
+  }
+
+  @keyframes macaw-pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(96, 214, 255, 0.55);
+    }
+    70% {
+      box-shadow: 0 0 0 6px rgba(96, 214, 255, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(96, 214, 255, 0);
+    }
+  }
+
+  .macaw-item-delete {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    margin-left: -0.25rem;
+    border-radius: 0.35rem;
+    font-size: 1rem;
+    line-height: 1;
+    color: rgba(226, 232, 240, 0.55);
+    background: transparent;
+    cursor: pointer;
+    opacity: 0;
+    transition:
+      opacity 140ms ease,
+      color 140ms ease,
+      background 140ms ease;
+  }
+
+  .macaw-item:hover .macaw-item-delete,
+  .macaw-item:focus-within .macaw-item-delete {
+    opacity: 1;
+  }
+
+  .macaw-item-delete:hover {
+    color: rgb(255, 170, 180);
+    background: rgba(126, 31, 54, 0.25);
+  }
+
+  .macaw-chat {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1.25rem;
+    background: rgba(8, 13, 26, 0.7);
+  }
+
+  .macaw-welcome,
+  .macaw-thread {
+    width: 100%;
+    overflow: auto;
+    padding: 2rem;
+  }
+
+  .macaw-welcome {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.9rem;
+  }
+
+  .macaw-welcome h1 {
+    margin: 0;
+    max-width: 38rem;
+    font-size: clamp(2rem, 4vw, 3.25rem);
+    line-height: 1.04;
+    letter-spacing: -0.04em;
+  }
+
+  .macaw-welcome p {
+    margin: 0;
+    max-width: 34rem;
+    color: rgba(226, 232, 240, 0.78);
+    font-size: 1rem;
+  }
+
+  .macaw-examples {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin-top: 0.5rem;
+    max-width: 48rem;
+  }
+
+  .macaw-example {
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 1rem;
+    color: inherit;
+    text-align: left;
+  }
+
+  .macaw-example:hover {
+    border-color: rgba(126, 155, 255, 0.45);
+    background: rgba(95, 113, 255, 0.12);
+  }
+
+  .macaw-thread {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .macaw-turn {
+    display: flex;
+  }
+
+  .macaw-turn.user {
+    justify-content: flex-end;
+  }
+
+  .macaw-turn.assistant {
+    justify-content: flex-start;
+  }
+
+  .macaw-bubble {
+    display: flex;
+    max-width: min(48rem, 92%);
+    flex-direction: column;
+    gap: 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1.2rem;
+    background: rgba(12, 18, 34, 0.95);
+    padding: 1rem 1.05rem;
+  }
+
+  .macaw-turn.user .macaw-bubble {
+    background: linear-gradient(180deg, rgba(76, 97, 214, 0.32) 0%, rgba(29, 39, 72, 0.82) 100%);
+  }
+
+  .macaw-turn-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    color: rgba(186, 201, 255, 0.9);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .macaw-text {
+    margin: 0;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    font: inherit;
+    line-height: 1.55;
+    color: rgba(244, 247, 255, 0.96);
+  }
+
+  .macaw-markdown {
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: rgba(244, 247, 255, 0.96);
+  }
+
+  .macaw-attached {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .macaw-attached-image {
+    display: inline-block;
+    max-width: 14rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    line-height: 0;
+  }
+
+  .macaw-attached-image img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 12rem;
+    object-fit: cover;
+  }
+
+  .macaw-attached-file {
+    display: inline-flex;
+    min-width: 0;
+    max-width: 18rem;
+    align-items: center;
+    gap: 0.55rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 0.7rem;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 0.45rem 0.6rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .macaw-attached-icon {
+    display: inline-grid;
+    flex-shrink: 0;
+    width: 2.1rem;
+    height: 2.1rem;
+    place-items: center;
+    border-radius: 0.45rem;
+    background: rgba(126, 155, 255, 0.28);
+    color: rgba(244, 247, 255, 0.92);
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  .macaw-attached-meta {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+  }
+
+  .macaw-attached-name,
+  .macaw-attached-mime {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .macaw-attached-name {
+    color: rgba(244, 247, 255, 0.96);
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .macaw-attached-mime {
+    color: rgba(226, 232, 240, 0.6);
+    font-size: 0.68rem;
+  }
+
+  .macaw-inline-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .macaw-inline-tool,
+  .macaw-step,
+  .macaw-tool {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.95rem;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .macaw-inline-tool {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(226, 232, 240, 0.84);
+  }
+
+  .macaw-inline-tool.running,
+  .macaw-step.running,
+  .macaw-tool.active {
+    border-color: rgba(96, 214, 255, 0.5);
+    background: rgba(53, 137, 184, 0.15);
+  }
+
+  .macaw-inline-tool.completed,
+  .macaw-step.completed {
+    border-color: rgba(111, 214, 151, 0.4);
+    background: rgba(67, 140, 98, 0.15);
+  }
+
+  .macaw-inline-tool.error,
+  .macaw-step.error,
+  .macaw-error {
+    border-color: rgba(255, 111, 129, 0.45);
+    background: rgba(126, 31, 54, 0.18);
+  }
+
+  .macaw-question {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    margin-bottom: 0.6rem;
+    border: 1px solid rgba(96, 214, 255, 0.32);
+    border-radius: 0.95rem;
+    background: rgba(53, 137, 184, 0.12);
+    padding: 0.85rem 0.95rem;
+  }
+
+  .macaw-question-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(186, 201, 255, 0.86);
+  }
+
+  .macaw-question-tabs {
+    display: flex;
+    gap: 0.3rem;
+  }
+
+  .macaw-question-tab {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .macaw-question-tab.answered {
+    background: rgba(111, 214, 151, 0.55);
+    border-color: rgba(111, 214, 151, 0.55);
+  }
+
+  .macaw-question-tab.active {
+    border-color: rgba(96, 214, 255, 0.8);
+    box-shadow: 0 0 0 2px rgba(96, 214, 255, 0.18);
+  }
+
+  .macaw-question-text {
+    margin: 0;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: rgba(244, 247, 255, 0.96);
+  }
+
+  .macaw-question-hint {
+    font-size: 0.72rem;
+    color: rgba(186, 201, 255, 0.7);
+  }
+
+  .macaw-question-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .macaw-question-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.7rem;
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(244, 247, 255, 0.92);
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .macaw-question-option:hover {
+    border-color: rgba(126, 155, 255, 0.4);
+  }
+
+  .macaw-question-option.picked {
+    border-color: rgba(96, 214, 255, 0.6);
+    background: rgba(53, 137, 184, 0.22);
+    box-shadow: inset 0 0 0 1px rgba(96, 214, 255, 0.45);
+  }
+
+  .macaw-question-option.custom {
+    cursor: text;
+  }
+
+  .macaw-question-option-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .macaw-question-option-label {
+    font-size: 0.84rem;
+    font-weight: 600;
+  }
+
+  .macaw-question-option-desc {
+    font-size: 0.74rem;
+    color: rgba(186, 201, 255, 0.72);
+  }
+
+  .macaw-question-mark {
+    display: grid;
+    place-items: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    border: 1.5px solid rgba(255, 255, 255, 0.28);
+    background: transparent;
+    color: transparent;
+    cursor: pointer;
+    font-size: 0;
+    flex-shrink: 0;
+    margin-top: 0.08rem;
+    padding: 0;
+  }
+
+  .macaw-question-mark[data-multi="true"] {
+    border-radius: 0.28rem;
+  }
+
+  .macaw-question-mark[data-multi="false"] {
+    border-radius: 999px;
+  }
+
+  .macaw-question-mark[data-on="true"] {
+    background: rgba(96, 214, 255, 0.85);
+    border-color: rgba(96, 214, 255, 0.85);
+  }
+
+  .macaw-question-mark[data-multi="true"][data-on="true"]::after {
+    content: "";
+    display: block;
+    width: 0.32rem;
+    height: 0.6rem;
+    border-right: 2px solid #0a1124;
+    border-bottom: 2px solid #0a1124;
+    transform: translateY(-1px) rotate(45deg);
+  }
+
+  .macaw-question-mark[data-multi="false"][data-on="true"]::after {
+    content: "";
+    display: block;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: #0a1124;
+  }
+
+  .macaw-question-custom {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    resize: none;
+    color: inherit;
+    outline: none;
+    font: inherit;
+    font-size: 0.84rem;
+    padding: 0;
+  }
+
+  .macaw-question-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  .macaw-question-actions button {
+    border: 0;
+    border-radius: 0.6rem;
+    padding: 0.5rem 0.85rem;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .macaw-question-dismiss {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(244, 247, 255, 0.78);
+  }
+
+  .macaw-question-back {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(244, 247, 255, 0.9);
+  }
+
+  .macaw-question-next {
+    background: linear-gradient(135deg, #617cff 0%, #7b5cff 100%);
+    color: #fff;
+  }
+
+  .macaw-question-next:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .macaw-permission {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-bottom: 0.6rem;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid rgba(253, 224, 71, 0.45);
+    border-radius: 0.95rem;
+    background: rgba(180, 83, 9, 0.18);
+  }
+
+  .macaw-permission-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(253, 224, 71, 0.92);
+  }
+
+  .macaw-permission-tool {
+    color: rgba(254, 240, 138, 0.95);
+    font-weight: 600;
+  }
+
+  .macaw-permission-desc {
+    margin: 0;
+    color: rgba(244, 247, 255, 0.85);
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  .macaw-permission-patterns {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .macaw-permission-pattern {
+    margin: 0;
+    padding: 0.4rem 0.55rem;
+    border-radius: 0.45rem;
+    background: rgba(0, 0, 0, 0.25);
+    color: rgba(244, 247, 255, 0.92);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.78rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .macaw-permission-meta {
+    display: flex;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    color: rgba(186, 201, 255, 0.7);
+  }
+
+  .macaw-permission-meta code {
+    color: rgba(244, 247, 255, 0.9);
+  }
+
+  .macaw-permission-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.45rem;
+  }
+
+  .macaw-permission-actions button {
+    border: 0;
+    border-radius: 0.6rem;
+    padding: 0.5rem 0.85rem;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .macaw-permission-reject {
+    background: rgba(255, 111, 129, 0.2);
+    color: #ffb4c0;
+  }
+
+  .macaw-permission-once {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(244, 247, 255, 0.92);
+  }
+
+  .macaw-permission-always {
+    background: linear-gradient(135deg, #facc15 0%, #f59e0b 100%);
+    color: #1c1917;
+  }
+
+  .macaw-subagent {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 0.7rem;
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+  }
+
+  .macaw-subagent.running {
+    animation: macaw-thinking-pulse 1.6s ease-in-out infinite;
+  }
+
+  .macaw-subagent.error {
+    border-color: rgba(255, 111, 129, 0.45);
+    background: rgba(126, 31, 54, 0.12);
+  }
+
+  .macaw-subagent-head {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.55rem 0.75rem;
+    background: transparent;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+  }
+
+  .macaw-subagent-head:disabled {
+    cursor: default;
+  }
+
+  .macaw-subagent-head:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .macaw-subagent-chevron {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 0.9rem;
+    color: rgba(186, 201, 255, 0.7);
+    transition: transform 160ms ease;
+  }
+
+  .macaw-subagent-chevron.open {
+    transform: rotate(90deg);
+  }
+
+  .macaw-subagent-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(226, 232, 240, 0.5);
+  }
+
+  .macaw-subagent-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: rgba(244, 247, 255, 0.96);
+  }
+
+  .macaw-subagent-desc {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.76rem;
+    color: rgba(226, 232, 240, 0.65);
+  }
+
+  .macaw-subagent-status {
+    flex-shrink: 0;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(186, 201, 255, 0.65);
+    padding: 0.1rem 0.45rem;
+    border-radius: 0.35rem;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .macaw-subagent.running .macaw-subagent-status {
+    color: rgba(96, 214, 255, 0.9);
+    background: rgba(53, 137, 184, 0.18);
+  }
+
+  .macaw-subagent.completed .macaw-subagent-status {
+    color: rgba(134, 231, 178, 0.9);
+    background: rgba(67, 140, 98, 0.18);
+  }
+
+  .macaw-subagent.error .macaw-subagent-status {
+    color: rgba(255, 160, 170, 0.9);
+    background: rgba(126, 31, 54, 0.22);
+  }
+
+  .macaw-subagent-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem 0.75rem 1.1rem;
+    margin-left: 0.5rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .macaw-subagent-empty {
+    font-size: 0.75rem;
+    color: rgba(226, 232, 240, 0.55);
+    font-style: italic;
+  }
+
+  .macaw-mini-turn {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 0.55rem;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .macaw-mini-turn.user {
+    background: rgba(76, 97, 214, 0.12);
+  }
+
+  .macaw-mini-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(186, 201, 255, 0.7);
+  }
+
+  .macaw-mini-text {
+    font-size: 0.78rem;
+  }
+
+  .macaw-shell-tool {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 0.6rem;
+    background: rgba(12, 18, 34, 0.65);
+  }
+
+  .macaw-shell-tool.running {
+    animation: macaw-thinking-pulse 1.6s ease-in-out infinite;
+  }
+
+  .macaw-shell-tool.error {
+    border-color: rgba(255, 111, 129, 0.45);
+    background: rgba(126, 31, 54, 0.12);
+  }
+
+  .macaw-shell-tool-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(186, 201, 255, 0.7);
+  }
+
+  .macaw-shell-tool-name {
+    font-weight: 600;
+    color: rgba(244, 247, 255, 0.95);
+  }
+
+  .macaw-shell-tool-status {
+    margin-left: auto;
+    padding: 0.1rem 0.45rem;
+    border-radius: 0.3rem;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .macaw-shell-tool.running .macaw-shell-tool-status {
+    color: rgb(96, 214, 255);
+    background: rgba(53, 137, 184, 0.18);
+  }
+
+  .macaw-shell-tool.completed .macaw-shell-tool-status {
+    color: rgb(134, 231, 178);
+    background: rgba(67, 140, 98, 0.18);
+  }
+
+  .macaw-shell-tool.error .macaw-shell-tool-status {
+    color: rgb(255, 160, 170);
+    background: rgba(126, 31, 54, 0.22);
+  }
+
+  .macaw-shell-tool-cmd {
+    margin: 0;
+    padding: 0.55rem 0.7rem;
+    max-height: 16rem;
+    overflow: auto;
+    border-radius: 0.45rem;
+    background: rgba(0, 0, 0, 0.35);
+    color: rgba(244, 247, 255, 0.92);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .macaw-shell-tool-toggle {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    color: rgba(186, 201, 255, 0.7);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    font: inherit;
+  }
+
+  .macaw-shell-tool-toggle:hover {
+    color: rgba(226, 232, 240, 0.9);
+  }
+
+  .macaw-shell-tool-chevron {
+    display: inline-flex;
+    width: 0.8rem;
+    transition: transform 160ms ease;
+  }
+
+  .macaw-shell-tool-chevron.open {
+    transform: rotate(90deg);
+  }
+
+  .macaw-shell-tool-output {
+    margin: 0;
+    padding: 0.55rem 0.7rem;
+    max-height: 18rem;
+    overflow: auto;
+    border-radius: 0.45rem;
+    background: rgba(0, 0, 0, 0.25);
+    color: rgba(226, 232, 240, 0.85);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.76rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .macaw-reasoning {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.45rem 0.6rem;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 0.55rem;
+    transition: border-color 0.2s ease-out;
+  }
+
+  .macaw-reasoning-active {
+    border-color: rgba(126, 155, 255, 0.25);
+    background: rgba(126, 155, 255, 0.05);
+  }
+
+  .macaw-reasoning-head {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    width: fit-content;
+  }
+
+  .macaw-reasoning-head:focus-visible {
+    outline: 1px solid rgba(126, 155, 255, 0.5);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  .macaw-reasoning-chevron {
+    display: inline-block;
+    font-size: 0.7rem;
+    line-height: 1;
+    color: rgba(226, 232, 240, 0.5);
+    transition: transform 0.15s ease-out;
+  }
+
+  .macaw-reasoning-chevron.open {
+    transform: rotate(90deg);
+  }
+
+  .macaw-reasoning-label {
+    font-size: 0.78rem;
+    letter-spacing: 0.01em;
+    color: rgba(226, 232, 240, 0.7);
+  }
+
+  .macaw-reasoning-live {
+    background: linear-gradient(
+      90deg,
+      rgba(226, 232, 240, 0.35) 0%,
+      rgba(226, 232, 240, 0.35) 35%,
+      rgba(255, 255, 255, 1) 50%,
+      rgba(226, 232, 240, 0.35) 65%,
+      rgba(226, 232, 240, 0.35) 100%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: macaw-reasoning-shimmer 2.2s linear infinite;
+  }
+
+  @keyframes macaw-reasoning-shimmer {
+    0% {
+      background-position: 100% 0;
+    }
+    100% {
+      background-position: -100% 0;
+    }
+  }
+
+  .macaw-reasoning-text {
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: rgba(226, 232, 240, 0.6);
+    font-style: italic;
+  }
+
+  .macaw-thinking-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  @keyframes macaw-thinking-pulse {
+    0%,
+    100% {
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+    50% {
+      border-color: rgba(126, 155, 255, 0.45);
+    }
+  }
+
+  .macaw-bubble.macaw-thinking {
+    animation: macaw-thinking-pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes macaw-dot-bounce {
+    0%,
+    80%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.35;
+    }
+    40% {
+      transform: translateY(-3px);
+      opacity: 1;
+    }
+  }
+
+  .macaw-dots {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+    padding: 0.15rem 0;
+  }
+
+  .macaw-dots span {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: rgba(186, 201, 255, 0.85);
+    animation: macaw-dot-bounce 1.2s ease-in-out infinite;
+  }
+
+  .macaw-dots span:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  .macaw-dots span:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+
+  .macaw-compose {
+    display: grid;
+    grid-template-columns: 9rem 3.5rem minmax(0, 1fr) 3.5rem;
+    gap: 0.75rem;
+    align-items: end;
+  }
+
+  .macaw-file-input {
+    display: none;
+  }
+
+  .macaw-attachments {
+    display: flex;
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .macaw-attach-chip {
+    display: inline-flex;
+    min-width: 0;
+    max-width: 18rem;
+    align-items: center;
+    gap: 0.55rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.85rem;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 0.35rem 0.45rem;
+  }
+
+  .macaw-attach-chip img,
+  .macaw-attach-file {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+  }
+
+  .macaw-attach-chip img {
+    object-fit: cover;
+  }
+
+  .macaw-attach-file {
+    display: inline-grid;
+    place-items: center;
+    background: rgba(126, 155, 255, 0.18);
+    color: rgba(226, 232, 240, 0.85);
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .macaw-attach-info {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+  }
+
+  .macaw-attach-name,
+  .macaw-attach-mime {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .macaw-attach-name {
+    color: rgba(244, 247, 255, 0.96);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .macaw-attach-mime {
+    color: rgba(226, 232, 240, 0.62);
+    font-size: 0.66rem;
+  }
+
+  .macaw-attach-remove {
+    display: inline-grid;
+    flex-shrink: 0;
+    width: 1.35rem;
+    height: 1.35rem;
+    place-items: center;
+    border: 0;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: rgba(226, 232, 240, 0.68);
+    cursor: pointer;
+  }
+
+  .macaw-attach-remove:hover {
+    background: rgba(126, 31, 54, 0.25);
+    color: rgb(255, 170, 180);
+  }
+
+  .macaw-mode,
+  .macaw-attach,
+  .macaw-input,
+  .macaw-select select {
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.85rem 0.95rem;
+    color: inherit;
+    outline: none;
+  }
+
+  .macaw-mode:focus,
+  .macaw-attach:focus,
+  .macaw-input:focus,
+  .macaw-select select:focus {
+    border-color: rgba(126, 155, 255, 0.52);
+  }
+
+  .macaw-attach {
+    display: grid;
+    aspect-ratio: 1;
+    place-items: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .macaw-mode:disabled {
+    opacity: 0.85;
+  }
+
+  .macaw-input {
+    min-height: 3.3rem;
+    resize: vertical;
+    line-height: 1.45;
+  }
+
+  .macaw-send {
+    display: grid;
+    aspect-ratio: 1;
+    place-items: center;
+    border-radius: 0.95rem;
+    background: linear-gradient(135deg, #617cff 0%, #7b5cff 100%);
+    color: white;
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+
+  .macaw-send:disabled {
+    cursor: default;
+    opacity: 0.45;
+    transform: none;
+  }
+
+  .macaw-send.macaw-stop {
+    background: rgba(255, 95, 115, 0.18);
+    border: 1px solid rgba(255, 95, 115, 0.5);
+    color: rgb(255, 170, 180);
+  }
+
+  .macaw-send.macaw-stop:hover {
+    background: rgba(255, 95, 115, 0.28);
+  }
+
+  .macaw-foot,
+  .macaw-conn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .macaw-conn {
+    justify-content: flex-start;
+    color: rgba(226, 232, 240, 0.82);
+  }
+
+  .macaw-dot {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 999px;
+    background: rgba(255, 111, 129, 0.82);
+    box-shadow: 0 0 0 0 rgba(255, 111, 129, 0.35);
+  }
+
+  .macaw-dot.on {
+    background: #6fd697;
+    box-shadow: 0 0 0 0.45rem rgba(111, 214, 151, 0.16);
+  }
+
+  .macaw-pane-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .macaw-pane-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+
+  .macaw-pane-state {
+    margin-top: 0.25rem;
+    color: rgba(186, 201, 255, 0.85);
+  }
+
+  .macaw-selects {
+    display: grid;
+    gap: 0.8rem;
+  }
+
+  .macaw-select {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .macaw-url {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .macaw-fallback-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.74rem;
+    color: rgba(226, 232, 240, 0.78);
+    cursor: pointer;
+    user-select: none;
+    margin-top: 0.1rem;
+  }
+
+  .macaw-fallback-toggle input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: rgba(126, 155, 255, 0.85);
+  }
+
+  .macaw-host {
+    position: relative;
+  }
+
+  .macaw-host-trigger {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.6rem;
+    background: rgba(255, 255, 255, 0.03);
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+  }
+
+  .macaw-host-trigger:hover {
+    border-color: rgba(126, 155, 255, 0.45);
+  }
+
+  .macaw-host-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.78rem;
+  }
+
+  .macaw-host-chevron {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    color: rgba(186, 201, 255, 0.6);
+    transition: transform 160ms ease;
+  }
+
+  .macaw-host-chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .macaw-host-menu {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 0.25rem);
+    left: 0;
+    right: 0;
+    max-height: 18rem;
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.6rem;
+    background: rgba(12, 18, 34, 0.98);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+    padding: 0.25rem;
+  }
+
+  .macaw-host-group {
+    padding: 0.45rem 0.5rem 0.25rem;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(186, 201, 255, 0.7);
+  }
+
+  .macaw-host-row {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 0.45rem;
+  }
+
+  .macaw-host-row:hover,
+  .macaw-host-row.active {
+    background: rgba(95, 113, 255, 0.18);
+  }
+
+  .macaw-host-star {
+    flex-shrink: 0;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: rgba(226, 232, 240, 0.45);
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+    border-radius: 0.35rem;
+  }
+
+  .macaw-host-star:hover {
+    color: rgba(255, 215, 95, 0.95);
+    background: rgba(255, 215, 95, 0.1);
+  }
+
+  .macaw-host-star.on {
+    color: rgb(255, 200, 80);
+  }
+
+  .macaw-host-pick {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0.45rem 0.55rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.78rem;
+  }
+
+  .macaw-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    padding: 0.35rem;
+    border-radius: 1rem;
+  }
+
+  .macaw-tabs button {
+    border-radius: 0.85rem;
+    background: transparent;
+    padding: 0.75rem 0.9rem;
+    color: rgba(226, 232, 240, 0.82);
+  }
+
+  .macaw-tabs button.active {
+    background: rgba(95, 113, 255, 0.16);
+    color: white;
+  }
+
+  .macaw-pane-list {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.4rem;
+    overflow: auto;
+  }
+
+  .macaw-step,
+  .macaw-tool {
+    padding: 0.45rem 0.65rem;
+  }
+
+  .macaw-step-head,
+  .macaw-tool-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgba(244, 247, 255, 0.95);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  button.macaw-step-head,
+  button.macaw-tool-head {
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  button.macaw-step-head:focus-visible,
+  button.macaw-tool-head:focus-visible {
+    outline: 1px solid rgba(126, 155, 255, 0.5);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  .macaw-pane-head-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .macaw-step p,
+  .macaw-tool p {
+    margin: 0.55rem 0 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.45;
+  }
+
+  .macaw-empty {
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .macaw-error {
+    padding: 0.9rem 1rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .macaw-error-screen {
+    margin: 2rem;
+    padding: 1.25rem;
+  }
+
+  :root {
+    --mg-core: #60d6ff;
+    --mg-entities: #c084fc;
+    --mg-projects: #86efac;
+    --mg-preferences: #fcd34d;
+    --mg-facts: #93c5fd;
+    --mg-skills: #f59e0b;
+    --mg-other: #94a3b8;
+  }
+
+  .macaw-graph-svg {
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  .macaw-graph-svg:active {
+    cursor: grabbing;
+  }
+
+  .macaw-graph-edge {
+    stroke: rgba(226, 232, 240, 0.18);
+    stroke-width: 1;
+    transition: stroke 140ms ease, stroke-width 140ms ease, opacity 140ms ease;
+  }
+
+  .macaw-graph-edge.active {
+    stroke: rgba(96, 214, 255, 0.75);
+    stroke-width: 1.8;
+  }
+
+  .macaw-graph-edge.dim {
+    opacity: 0.25;
+  }
+
+  .macaw-graph-node {
+    cursor: pointer;
+    transition: opacity 140ms ease;
+  }
+
+  .macaw-graph-node.dim {
+    opacity: 0.28;
+  }
+
+  .macaw-graph-node-hit {
+    fill: transparent;
+    stroke: none;
+    pointer-events: all;
+  }
+
+  .macaw-graph-node-fill {
+    fill: var(--mg-other);
+    stroke: rgba(5, 8, 22, 0.6);
+    stroke-width: 1;
+    pointer-events: none;
+    transition:
+      r 160ms ease,
+      stroke 160ms ease,
+      filter 160ms ease;
+  }
+
+  .macaw-graph-node[data-category="core"] .macaw-graph-node-fill {
+    fill: var(--mg-core);
+  }
+  .macaw-graph-node[data-category="entities"] .macaw-graph-node-fill {
+    fill: var(--mg-entities);
+  }
+  .macaw-graph-node[data-category="projects"] .macaw-graph-node-fill {
+    fill: var(--mg-projects);
+  }
+  .macaw-graph-node[data-category="preferences"] .macaw-graph-node-fill {
+    fill: var(--mg-preferences);
+  }
+  .macaw-graph-node[data-category="facts"] .macaw-graph-node-fill {
+    fill: var(--mg-facts);
+  }
+  .macaw-graph-node[data-category="skills"] .macaw-graph-node-fill {
+    fill: var(--mg-skills);
+  }
+
+  .macaw-graph-node.linked .macaw-graph-node-fill {
+    filter: brightness(1.1);
+  }
+
+  .macaw-graph-node.hover .macaw-graph-node-fill,
+  .macaw-graph-node.selected .macaw-graph-node-fill {
+    filter: brightness(1.25);
+    stroke: rgba(244, 247, 255, 0.95);
+    stroke-width: 2.5;
+  }
+
+  .macaw-graph-node-label {
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    fill: rgba(226, 232, 240, 0.85);
+    text-anchor: middle;
+    pointer-events: none;
+    user-select: none;
+    paint-order: stroke fill;
+    stroke: rgba(5, 8, 22, 0.85);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+  }
+
+  .macaw-graph-node.hover .macaw-graph-node-label,
+  .macaw-graph-node.selected .macaw-graph-node-label {
+    fill: rgba(244, 247, 255, 1);
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+  .macaw-graph-legend {
+    position: absolute;
+    left: 0.75rem;
+    bottom: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.5rem;
+    background: rgba(12, 18, 34, 0.8);
+    font-size: 0.68rem;
+    color: rgba(226, 232, 240, 0.7);
+  }
+
+  .macaw-graph-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .macaw-graph-legend-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--mg-other);
+  }
+
+  .macaw-graph-legend-item[data-category="core"] .macaw-graph-legend-dot {
+    background: var(--mg-core);
+  }
+  .macaw-graph-legend-item[data-category="entities"] .macaw-graph-legend-dot {
+    background: var(--mg-entities);
+  }
+  .macaw-graph-legend-item[data-category="projects"] .macaw-graph-legend-dot {
+    background: var(--mg-projects);
+  }
+  .macaw-graph-legend-item[data-category="preferences"] .macaw-graph-legend-dot {
+    background: var(--mg-preferences);
+  }
+  .macaw-graph-legend-item[data-category="facts"] .macaw-graph-legend-dot {
+    background: var(--mg-facts);
+  }
+  .macaw-graph-legend-item[data-category="skills"] .macaw-graph-legend-dot {
+    background: var(--mg-skills);
+  }
+
+  .macaw-graph-legend-count {
+    margin-left: auto;
+    color: rgba(226, 232, 240, 0.45);
+  }
+
+  .macaw-toasts {
+    position: absolute;
+    top: 0.85rem;
+    right: 0.85rem;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    pointer-events: none;
+  }
+
+  .macaw-toast {
+    pointer-events: auto;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 0.6rem;
+    row-gap: 0.15rem;
+    min-width: 17rem;
+    max-width: 22rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid rgba(126, 155, 255, 0.7);
+    border-radius: 0.6rem;
+    background: rgba(12, 18, 34, 0.96);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.32);
+    color: rgba(244, 247, 255, 0.96);
+    text-align: left;
+    cursor: pointer;
+    animation: macaw-toast-in 180ms ease-out;
+    font: inherit;
+  }
+
+  .macaw-toast:hover {
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+
+  .macaw-toast-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: rgba(244, 247, 255, 0.98);
+  }
+
+  .macaw-toast-body {
+    grid-column: 1 / 2;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: rgba(226, 232, 240, 0.78);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .macaw-toast-close {
+    grid-row: 1 / span 2;
+    align-self: center;
+    display: inline-grid;
+    place-items: center;
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 0.35rem;
+    color: rgba(226, 232, 240, 0.55);
+    background: transparent;
+    font-size: 0.95rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .macaw-toast-close:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(244, 247, 255, 0.96);
+  }
+
+  .macaw-toast-idle {
+    border-left-color: rgba(111, 214, 151, 0.85);
+  }
+
+  .macaw-toast-question {
+    border-left-color: rgba(126, 155, 255, 0.85);
+  }
+
+  .macaw-toast-permission {
+    border-left-color: rgba(253, 186, 116, 0.85);
+  }
+
+  @keyframes macaw-toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (max-width: 1280px) {
+    .macaw-shell {
+      grid-template-columns: 16rem minmax(0, 1fr) 21rem;
+    }
+  }
+
+  @media (max-width: 1080px) {
+    .macaw-shell {
+      grid-template-columns: 1fr;
+    }
+
+    .macaw-side,
+    .macaw-main,
+    .macaw-pane {
+      min-height: auto;
+    }
+
+    .macaw-side,
+    .macaw-pane {
+      border-width: 0;
+    }
+
+    .macaw-list,
+    .macaw-pane-list {
+      max-height: none;
+    }
+
+    .macaw-examples {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    background: #f3f4f6;
+    color: #1f2937;
+  }
+
+  #root {
+    background: #fff;
+  }
+}
+
+@layer components {
+  .macaw-shell {
+    grid-template-columns: var(--macaw-left, 7.6rem) 0.4rem minmax(0, 1fr) 0.4rem var(--macaw-right, 14rem);
+    background: #fff;
+  }
+
+  .macaw-side,
+  .macaw-main,
+  .macaw-pane {
+    gap: 0;
+    padding: 0;
+    min-width: 0;
+    background: #fff;
+    border-color: #e8eaee;
+    backdrop-filter: none;
+  }
+
+  .macaw-grip {
+    position: relative;
+    cursor: col-resize;
+    background: #fafbfc;
+    touch-action: none;
+  }
+
+  .macaw-grip::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 1px;
+    height: 100%;
+    background: #e8eaee;
+  }
+
+  .macaw-grip::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 0.16rem;
+    height: 2.4rem;
+    border-radius: 999px;
+    background: #cfd6e2;
+    opacity: 0;
+    transition: opacity 140ms ease;
+  }
+
+  .macaw-grip:hover::after {
+    opacity: 1;
+  }
+
+  .macaw-side {
+    border-right-width: 1px;
+  }
+
+  .macaw-pane {
+    border-left-width: 1px;
+  }
+
+  .macaw-main {
+    padding: 0;
+    position: relative;
+  }
+
+  .macaw-brand,
+  .macaw-block,
+  .macaw-compose,
+  .macaw-foot,
+  .macaw-pane-head,
+  .macaw-selects,
+  .macaw-tabs,
+  .macaw-error,
+  .macaw-error-screen {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .macaw-brand {
+    padding: 0.8rem 0.7rem 0.75rem;
+    border-bottom: 1px solid #eef0f3;
+  }
+
+  .macaw-mark {
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    color: #111827;
+  }
+
+  .macaw-sub {
+    display: none;
+  }
+
+  .macaw-block {
+    padding: 0.9rem 0.45rem 0;
+  }
+
+  .macaw-block.grow {
+    padding-top: 1rem;
+  }
+
+  .macaw-label {
+    margin: 0 0 0.35rem 0.25rem;
+    color: #9aa3b2;
+    font-size: 0.55rem;
+    letter-spacing: 0.12em;
+  }
+
+  .macaw-new,
+  .macaw-item {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0.35rem 0.45rem;
+    border: 1px solid transparent;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: #1f2937;
+    font-size: 0.72rem;
+    font-weight: 500;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .macaw-new {
+    background: #edf3ff;
+    color: #1d4ed8;
+  }
+
+  .macaw-new + .macaw-new {
+    margin-top: 0.4rem;
+  }
+
+  .macaw-item {
+    padding-right: 0.45rem;
+  }
+
+  .macaw-new:hover,
+  .macaw-attach:hover,
+  .macaw-item:hover,
+  .macaw-example:hover,
+  .macaw-tabs button:hover,
+  .macaw-send:hover {
+    transform: none;
+  }
+
+  .macaw-item.active {
+    border-color: #dbe7ff;
+    background: #edf3ff;
+    color: #1d4ed8;
+  }
+
+  .macaw-item-title {
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
+
+  .macaw-item-time {
+    display: none;
+  }
+
+  .macaw-item-running {
+    background: #2563eb;
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5);
+    animation: macaw-pulse-light 1.4s ease-out infinite;
+  }
+
+  .macaw-item-running:hover {
+    background: #dc2626;
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2);
+  }
+
+  @keyframes macaw-pulse-light {
+    0% {
+      box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5);
+    }
+    70% {
+      box-shadow: 0 0 0 6px rgba(37, 99, 235, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+    }
+  }
+
+  .macaw-item-delete {
+    color: #94a3b8;
+  }
+
+  .macaw-item-delete:hover {
+    color: #dc2626;
+    background: #fef2f2;
+  }
+
+  .macaw-list {
+    min-height: 0;
+    flex: 1 1 auto;
+    gap: 0.15rem;
+    overflow-y: auto;
+  }
+
+  .macaw-search {
+    margin: 0 0.25rem 0.4rem;
+    padding: 0.3rem 0.45rem;
+    border: 1px solid #dbe1ea;
+    border-radius: 0.35rem;
+    background: #fff;
+    color: #1f2937;
+    font-size: 0.7rem;
+  }
+
+  .macaw-search:focus {
+    border-color: #93c5fd;
+  }
+
+  .macaw-empty {
+    padding: 0 0.25rem;
+    color: #a0a8b7;
+    font-size: 0.7rem;
+    text-align: left;
+  }
+
+  .macaw-status {
+    margin-top: auto;
+    padding: 0.45rem 0.5rem 0.5rem;
+    border-top: 1px solid #eef0f3;
+  }
+
+  .macaw-conn {
+    justify-content: flex-start;
+    gap: 0.35rem;
+    color: #7a8392;
+    font-size: 0.65rem;
+  }
+
+  .macaw-dot {
+    width: 0.35rem;
+    height: 0.35rem;
+    background: #ef4444;
+    box-shadow: none;
+  }
+
+  .macaw-dot.on {
+    background: #22c55e;
+    box-shadow: none;
+  }
+
+  .macaw-chat {
+    border-width: 1px 0;
+    border-radius: 0;
+    border-color: #eef0f3;
+    background: #fff;
+  }
+
+  .macaw-welcome,
+  .macaw-thread {
+    padding: 0.9rem 1rem;
+  }
+
+  .macaw-welcome {
+    justify-content: flex-start;
+    gap: 0.55rem;
+  }
+
+  .macaw-guide-copy {
+    max-width: 34rem;
+    margin: 0;
+    color: #4b5563;
+    font-size: 0.74rem;
+    line-height: 1.5;
+  }
+
+  .macaw-guide-copy code {
+    background: transparent;
+    font-family: inherit;
+  }
+
+  .macaw-welcome h1,
+  .macaw-welcome p:not(.macaw-guide-copy) {
+    display: none;
+  }
+
+  .macaw-examples {
+    display: flex;
+    max-width: 36rem;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 0.15rem;
+  }
+
+  .macaw-example {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #374151;
+    font-size: 0.74rem;
+    text-align: left;
+  }
+
+  .macaw-example:hover {
+    border-color: transparent;
+    background: transparent;
+    color: #1d4ed8;
+  }
+
+  .macaw-thread {
+    gap: 0.75rem;
+  }
+
+  .macaw-bubble {
+    max-width: min(42rem, 92%);
+    gap: 0.65rem;
+    padding: 0.75rem 0.8rem;
+    border: 1px solid #e6eaf0;
+    border-radius: 0.6rem;
+    background: #fbfcfd;
+    box-shadow: none;
+  }
+
+  .macaw-turn.user .macaw-bubble {
+    border-color: #dbe7ff;
+    background: #edf3ff;
+  }
+
+  .macaw-turn-head {
+    color: #7a8392;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .macaw-text {
+    color: #1f2937;
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  .macaw-markdown {
+    color: #1f2937;
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  .macaw-attached {
+    gap: 0.4rem;
+  }
+
+  .macaw-attached-image {
+    border: 1px solid #dbe1ea;
+    border-radius: 0.45rem;
+  }
+
+  .macaw-attached-image img {
+    max-height: 9rem;
+  }
+
+  .macaw-attached-file {
+    border: 1px solid #dbe1ea;
+    border-radius: 0.45rem;
+    background: #fff;
+    padding: 0.35rem 0.45rem;
+    color: #1f2937;
+  }
+
+  .macaw-attached-icon {
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 0.35rem;
+    background: #eaf1ff;
+    color: #2563eb;
+    font-size: 0.5rem;
+  }
+
+  .macaw-attached-name {
+    color: #1f2937;
+    font-size: 0.72rem;
+  }
+
+  .macaw-attached-mime {
+    color: #94a3b8;
+    font-size: 0.6rem;
+  }
+
+  .macaw-inline-tool,
+  .macaw-step,
+  .macaw-tool {
+    border: 1px solid #e6eaf0;
+    border-radius: 0.45rem;
+    background: #fff;
+  }
+
+  .macaw-inline-tool {
+    padding: 0.35rem 0.5rem;
+    color: #6b7280;
+    font-size: 0.65rem;
+  }
+
+  .macaw-inline-tool.running,
+  .macaw-step.running,
+  .macaw-tool.active {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+  }
+
+  .macaw-inline-tool.completed,
+  .macaw-step.completed {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+  }
+
+  .macaw-inline-tool.error,
+  .macaw-step.error,
+  .macaw-error {
+    border-color: #fecaca;
+    background: #fef2f2;
+  }
+
+  .macaw-question {
+    border: 1px solid #dbe1ea;
+    border-radius: 0.5rem;
+    background: #f5f8ff;
+    padding: 0.55rem 0.7rem;
+    gap: 0.45rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .macaw-question-head {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: #6b7280;
+  }
+
+  .macaw-question-tab {
+    border-color: #cbd5e1;
+  }
+
+  .macaw-question-tab.answered {
+    background: #34d399;
+    border-color: #34d399;
+  }
+
+  .macaw-question-tab.active {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 1.5px rgba(37, 99, 235, 0.18);
+  }
+
+  .macaw-question-text {
+    font-size: 0.78rem;
+    color: #1f2937;
+  }
+
+  .macaw-question-hint {
+    font-size: 0.66rem;
+    color: #6b7280;
+  }
+
+  .macaw-question-options {
+    gap: 0.35rem;
+  }
+
+  .macaw-question-option {
+    align-items: center;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid #e3e6ec;
+    border-radius: 0.45rem;
+    background: #fff;
+    color: #1f2937;
+    transition:
+      background 140ms ease,
+      border-color 140ms ease,
+      box-shadow 140ms ease;
+  }
+
+  .macaw-question-option:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+
+  .macaw-question-option.picked {
+    border-color: #2563eb;
+    background: #eef4ff;
+    box-shadow: inset 0 0 0 1px #2563eb;
+  }
+
+  .macaw-question-option-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  .macaw-question-option-desc {
+    font-size: 0.7rem;
+    color: #64748b;
+  }
+
+  .macaw-question-mark {
+    width: 1.05rem;
+    height: 1.05rem;
+    margin-top: 0;
+    border: 1.5px solid #cbd5e1;
+    background: #fff;
+    color: transparent;
+    font-size: 0;
+    flex-shrink: 0;
+  }
+
+  .macaw-question-mark[data-multi="true"] {
+    border-radius: 0.25rem;
+  }
+
+  .macaw-question-mark[data-multi="false"] {
+    border-radius: 999px;
+  }
+
+  .macaw-question-mark[data-on="true"] {
+    background: #2563eb;
+    border-color: #2563eb;
+  }
+
+  .macaw-question-mark[data-multi="true"][data-on="true"]::after {
+    content: "";
+    display: block;
+    width: 0.32rem;
+    height: 0.58rem;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: translateY(-1px) rotate(45deg);
+  }
+
+  .macaw-question-mark[data-multi="false"][data-on="true"]::after {
+    content: "";
+    display: block;
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 999px;
+    background: #fff;
+  }
+
+  .macaw-question-custom {
+    font-size: 0.78rem;
+  }
+
+  .macaw-question-actions button {
+    height: 2rem;
+    padding: 0 0.85rem;
+    font-size: 0.72rem;
+    border-radius: 0.4rem;
+  }
+
+  .macaw-question-dismiss {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  .macaw-question-back {
+    background: #e5e7eb;
+    color: #1f2937;
+  }
+
+  .macaw-question-next {
+    background: #2563eb;
+    color: #fff;
+  }
+
+  .macaw-permission {
+    border-color: #fcd34d;
+    background: #fffbeb;
+  }
+
+  .macaw-permission-head {
+    color: #92400e;
+  }
+
+  .macaw-permission-tool {
+    color: #78350f;
+  }
+
+  .macaw-permission-desc {
+    color: #1f2937;
+  }
+
+  .macaw-permission-pattern {
+    background: #fef3c7;
+    color: #1f2937;
+  }
+
+  .macaw-permission-meta {
+    color: #6b7280;
+  }
+
+  .macaw-permission-meta code {
+    color: #1f2937;
+  }
+
+  .macaw-permission-reject {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .macaw-permission-once {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  .macaw-permission-always {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #fff;
+  }
+
+  .macaw-subagent {
+    border: 1px solid #e4e8ee;
+    background: #f8fafc;
+  }
+
+  .macaw-subagent.error {
+    border-color: #fecaca;
+    background: #fef2f2;
+  }
+
+  .macaw-subagent-head:hover:not(:disabled) {
+    background: #eef1f6;
+  }
+
+  .macaw-subagent-chevron {
+    color: #64748b;
+  }
+
+  .macaw-subagent-label {
+    color: #94a3b8;
+  }
+
+  .macaw-subagent-name {
+    color: #1f2937;
+  }
+
+  .macaw-subagent-desc {
+    color: #6b7280;
+  }
+
+  .macaw-subagent-status {
+    color: #64748b;
+    background: #eef1f6;
+  }
+
+  .macaw-subagent.running .macaw-subagent-status {
+    color: #1d4ed8;
+    background: #eff6ff;
+  }
+
+  .macaw-subagent.completed .macaw-subagent-status {
+    color: #15803d;
+    background: #f0fdf4;
+  }
+
+  .macaw-subagent.error .macaw-subagent-status {
+    color: #b91c1c;
+    background: #fef2f2;
+  }
+
+  .macaw-subagent-body {
+    border-left-color: #e4e8ee;
+  }
+
+  .macaw-subagent-empty {
+    color: #94a3b8;
+  }
+
+  .macaw-mini-turn {
+    background: #ffffff;
+    border: 1px solid #edf0f4;
+  }
+
+  .macaw-mini-turn.user {
+    background: #eff4ff;
+    border-color: #dce6fb;
+  }
+
+  .macaw-mini-head {
+    color: #64748b;
+  }
+
+  .macaw-shell-tool {
+    background: #ffffff;
+    border: 1px solid #e4e8ee;
+  }
+
+  .macaw-shell-tool.error {
+    border-color: #fecaca;
+    background: #fef2f2;
+  }
+
+  .macaw-shell-tool-head {
+    color: #64748b;
+  }
+
+  .macaw-shell-tool-name {
+    color: #1f2937;
+  }
+
+  .macaw-shell-tool-status {
+    background: #eef1f6;
+    color: #64748b;
+  }
+
+  .macaw-shell-tool.running .macaw-shell-tool-status {
+    color: #1d4ed8;
+    background: #eff6ff;
+  }
+
+  .macaw-shell-tool.completed .macaw-shell-tool-status {
+    color: #15803d;
+    background: #f0fdf4;
+  }
+
+  .macaw-shell-tool.error .macaw-shell-tool-status {
+    color: #b91c1c;
+    background: #fef2f2;
+  }
+
+  .macaw-shell-tool-cmd {
+    background: #f1f5f9;
+    color: #0f172a;
+  }
+
+  .macaw-shell-tool-toggle {
+    color: #64748b;
+  }
+
+  .macaw-shell-tool-toggle:hover {
+    color: #1f2937;
+  }
+
+  .macaw-shell-tool-output {
+    background: #f8fafc;
+    color: #334155;
+  }
+
+  .macaw-reasoning {
+    padding: 0.4rem 0.55rem;
+    border: 1px solid #e4e8ee;
+    background: #f1f3f6;
+    border-radius: 0.45rem;
+  }
+
+  .macaw-reasoning-active {
+    border-color: #93c5fd;
+    background: #eef4ff;
+  }
+
+  .macaw-reasoning-chevron {
+    color: #94a3b8;
+  }
+
+  .macaw-reasoning-label {
+    color: #475569;
+    font-size: 0.72rem;
+  }
+
+  .macaw-reasoning-live {
+    background: linear-gradient(
+      90deg,
+      #94a3b8 0%,
+      #94a3b8 35%,
+      #0f172a 50%,
+      #94a3b8 65%,
+      #94a3b8 100%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .macaw-reasoning-text {
+    font-size: 0.7rem;
+    color: #64748b;
+  }
+
+  @keyframes macaw-thinking-pulse-light {
+    0%,
+    100% {
+      border-color: #e4e8ee;
+    }
+    50% {
+      border-color: #93c5fd;
+    }
+  }
+
+  .macaw-bubble.macaw-thinking {
+    animation: macaw-thinking-pulse-light 1.6s ease-in-out infinite;
+  }
+
+  .macaw-dots span {
+    background: #64748b;
+  }
+
+  .macaw-compose {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.45rem 0.55rem;
+    margin: 0.5rem 0.75rem 0;
+    border: 1px solid #e3e6ec;
+    border-radius: 0.6rem;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    transition:
+      border-color 140ms ease,
+      box-shadow 140ms ease;
+  }
+
+  .macaw-compose:focus-within {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.25);
+  }
+
+  .macaw-attachments {
+    gap: 0.35rem;
+  }
+
+  .macaw-attach-chip {
+    gap: 0.4rem;
+    border: 1px solid #dbe1ea;
+    border-radius: 0.4rem;
+    background: #f8fafc;
+    padding: 0.25rem 0.35rem;
+  }
+
+  .macaw-attach-chip img,
+  .macaw-attach-file {
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 0.35rem;
+  }
+
+  .macaw-attach-file {
+    background: #eaf1ff;
+    color: #2563eb;
+    font-size: 0.48rem;
+  }
+
+  .macaw-attach-name {
+    color: #1f2937;
+    font-size: 0.68rem;
+  }
+
+  .macaw-attach-mime {
+    color: #94a3b8;
+    font-size: 0.58rem;
+  }
+
+  .macaw-attach-remove {
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 0.3rem;
+    color: #94a3b8;
+  }
+
+  .macaw-attach-remove:hover {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+
+  .macaw-mode {
+    height: 2.1rem;
+    padding: 0 1.4rem 0 0.6rem;
+    border: 1px solid transparent;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: #1f2937;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+      background 140ms ease,
+      border-color 140ms ease;
+  }
+
+  .macaw-mode:hover {
+    background: #f5f7fb;
+  }
+
+  .macaw-mode:focus {
+    background: #f5f7fb;
+    border-color: #cbd5e1;
+  }
+
+  .macaw-attach {
+    width: 2.1rem;
+    height: 2.1rem;
+    aspect-ratio: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0.45rem;
+    background: transparent;
+    color: #6b7280;
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1;
+    transition: background 140ms ease;
+  }
+
+  .macaw-attach:hover {
+    background: #f1f5f9;
+    color: #1f2937;
+  }
+
+  .macaw-input {
+    min-height: 2.1rem;
+    max-height: 7rem;
+    padding: 0.4rem 0.5rem;
+    border: 0;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: #1f2937;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    resize: none;
+  }
+
+  .macaw-input:focus {
+    border: 0;
+    outline: none;
+  }
+
+  .macaw-select select {
+    padding: 0.45rem 0.55rem;
+    border: 1px solid #dbe1ea;
+    border-radius: 0.35rem;
+    background: #fff;
+    color: #1f2937;
+    font-size: 0.72rem;
+  }
+
+  .macaw-select select:focus {
+    border-color: #93c5fd;
+  }
+
+  .macaw-send {
+    width: 2.1rem;
+    height: 2.1rem;
+    aspect-ratio: auto;
+    border: 0;
+    border-radius: 0.45rem;
+    background: #2563eb;
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1;
+    box-shadow: none;
+    transition:
+      background 140ms ease,
+      opacity 140ms ease;
+  }
+
+  .macaw-send:hover {
+    background: #1d4ed8;
+  }
+
+  .macaw-send:disabled {
+    transform: none;
+    background: #cbd5e1;
+    color: #ffffff;
+    opacity: 1;
+  }
+
+  .macaw-send.macaw-stop {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    font-size: 0.7rem;
+  }
+
+  .macaw-send.macaw-stop:hover {
+    background: #fee2e2;
+  }
+
+  .macaw-foot {
+    display: flex;
+    justify-content: center;
+    padding: 0.35rem 0.75rem 0.4rem;
+  }
+
+  .macaw-note {
+    color: #94a3b8;
+    font-size: 0.65rem;
+    text-align: center;
+  }
+
+  .macaw-pane-head {
+    padding: 0.85rem 0.75rem 0.35rem;
+    border-bottom: 1px solid #eef0f3;
+  }
+
+  .macaw-pane-title {
+    color: #111827;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .macaw-pane-state {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem 0.55rem;
+    border-bottom: 1px solid #eef0f3;
+    color: #8a94a4;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+  }
+
+  .macaw-selects {
+    gap: 0.55rem;
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid #eef0f3;
+  }
+
+  .macaw-select {
+    gap: 0.25rem;
+  }
+
+  .macaw-select span {
+    color: #8a94a4;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .macaw-url {
+    color: #a0a8b7;
+    font-size: 0.6rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .macaw-fallback-toggle {
+    color: #6b7280;
+    font-size: 0.66rem;
+    margin-top: 0.05rem;
+  }
+
+  .macaw-host-trigger {
+    padding: 0.4rem 0.5rem;
+    border: 1px solid #dbe1ea;
+    border-radius: 0.35rem;
+    background: #fff;
+    color: #1f2937;
+    font-size: 0.72rem;
+  }
+
+  .macaw-host-trigger:hover {
+    border-color: #93c5fd;
+  }
+
+  .macaw-host-label {
+    font-size: 0.72rem;
+  }
+
+  .macaw-host-chevron {
+    color: #94a3b8;
+  }
+
+  .macaw-host-menu {
+    border: 1px solid #dbe1ea;
+    border-radius: 0.35rem;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  }
+
+  .macaw-host-group {
+    color: #8a94a4;
+    font-size: 0.55rem;
+  }
+
+  .macaw-host-row:hover,
+  .macaw-host-row.active {
+    background: #edf3ff;
+  }
+
+  .macaw-host-star {
+    color: #94a3b8;
+    font-size: 0.85rem;
+  }
+
+  .macaw-host-star:hover {
+    color: #d97706;
+    background: #fef3c7;
+  }
+
+  .macaw-host-star.on {
+    color: #d97706;
+  }
+
+  .macaw-host-pick {
+    color: #1f2937;
+    font-size: 0.72rem;
+  }
+
+  .macaw-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    padding: 0 0.75rem;
+    border-bottom: 1px solid #eef0f3;
+  }
+
+  .macaw-tabs button {
+    padding: 0.5rem 0.25rem 0.45rem;
+    border-radius: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: #8a94a4;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .macaw-tabs button.active {
+    border-bottom-color: #2563eb;
+    background: transparent;
+    color: #2563eb;
+  }
+
+  .macaw-pane-list {
+    padding: 0.6rem 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .macaw-step,
+  .macaw-tool {
+    padding: 0.35rem 0.5rem;
+  }
+
+  .macaw-step-head,
+  .macaw-tool-head {
+    color: #1f2937;
+    font-size: 0.6rem;
+    letter-spacing: 0.04em;
+  }
+
+  .macaw-step p,
+  .macaw-tool p {
+    color: #6b7280;
+    font-size: 0.72rem;
+    line-height: 1.4;
+  }
+
+  .macaw-error {
+    margin: 0.75rem;
+    padding: 0.75rem;
+    font-size: 0.72rem;
+  }
+
+  .macaw-error-screen {
+    margin: 1rem;
+    padding: 1rem;
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+  }
+
+  :root {
+    --mg-core: #2563eb;
+    --mg-entities: #9333ea;
+    --mg-projects: #16a34a;
+    --mg-preferences: #d97706;
+    --mg-facts: #0ea5e9;
+    --mg-skills: #ea580c;
+    --mg-other: #94a3b8;
+  }
+
+  .macaw-graph-edge {
+    stroke: rgba(15, 23, 42, 0.22);
+    stroke-width: 1.25;
+  }
+
+  .macaw-graph-edge.active {
+    stroke: #2563eb;
+    stroke-width: 2;
+  }
+
+  .macaw-graph-node-fill {
+    stroke: #ffffff;
+    stroke-width: 1.5;
+  }
+
+  .macaw-graph-node.hover .macaw-graph-node-fill,
+  .macaw-graph-node.selected .macaw-graph-node-fill {
+    stroke: #0f172a;
+    stroke-width: 2;
+  }
+
+  .macaw-graph-node-label {
+    fill: #1f2937;
+    stroke: #ffffff;
+    stroke-width: 3.5px;
+  }
+
+  .macaw-graph-node.hover .macaw-graph-node-label,
+  .macaw-graph-node.selected .macaw-graph-node-label {
+    fill: #0f172a;
+  }
+
+  .macaw-graph-legend {
+    background: #ffffff;
+    border-color: #e4e8ee;
+    color: #334155;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  }
+
+  .macaw-graph-legend-count {
+    color: #94a3b8;
+  }
+
+  .macaw-wiki-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    color: #1f2937;
+  }
+
+  .macaw-wiki-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.85rem;
+    border-bottom: 1px solid #eef0f3;
+    background: #fff;
+  }
+
+  .macaw-wiki-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #111827;
+  }
+
+  .macaw-wiki-count {
+    font-size: 0.7rem;
+    color: #7a8392;
+  }
+
+  .macaw-wiki-search {
+    flex: 1 1 auto;
+    min-width: 8rem;
+    max-width: 22rem;
+    margin: 0 0.4rem 0 auto;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid #e4e8ee;
+    border-radius: 0.4rem;
+    background: #fafbfc;
+    color: #1f2937;
+    font: inherit;
+    font-size: 0.78rem;
+    outline: none;
+    transition: border-color 120ms ease, background 120ms ease;
+  }
+
+  .macaw-wiki-search:focus {
+    border-color: #93b8ff;
+    background: #fff;
+  }
+
+  .macaw-wiki-search::-webkit-search-cancel-button {
+    appearance: none;
+  }
+
+  .macaw-wiki-modes {
+    display: inline-flex;
+    padding: 0.15rem;
+    border: 1px solid #e4e8ee;
+    border-radius: 0.45rem;
+    background: #f3f5f9;
+    gap: 0.1rem;
+  }
+
+  .macaw-wiki-mode {
+    padding: 0.2rem 0.6rem;
+    border: 0;
+    border-radius: 0.3rem;
+    background: transparent;
+    color: #4b5563;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .macaw-wiki-mode:hover {
+    color: #1f2937;
+  }
+
+  .macaw-wiki-mode.active {
+    background: #fff;
+    color: #1d4ed8;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  }
+
+  .macaw-wiki-refresh,
+  .macaw-wiki-close {
+    padding: 0.3rem 0.7rem;
+    border: 1px solid #e4e8ee;
+    border-radius: 0.4rem;
+    background: #fff;
+    color: #1f2937;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.74rem;
+  }
+
+  .macaw-wiki-close {
+    padding: 0.15rem 0.5rem;
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+
+  .macaw-wiki-refresh:hover,
+  .macaw-wiki-close:hover {
+    background: #f3f5f9;
+  }
+
+  .macaw-wiki-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr);
+    background: #fff;
+  }
+
+  .macaw-wiki-side {
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0.65rem 0.55rem 1rem;
+    border-right: 1px solid #eef0f3;
+    background: #fafbfc;
+  }
+
+  .macaw-wiki-side-empty {
+    padding: 0.6rem 0.4rem;
+    color: #9aa3b2;
+    font-size: 0.72rem;
+  }
+
+  .macaw-wiki-group + .macaw-wiki-group {
+    margin-top: 0.85rem;
+  }
+
+  .macaw-wiki-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 0.3rem 0.3rem;
+    color: #9aa3b2;
+    font-size: 0.55rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+
+  .macaw-wiki-group-count {
+    color: #b0b8c5;
+    font-weight: 500;
+  }
+
+  .macaw-wiki-item {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
+    padding: 0.32rem 0.45rem;
+    border: 1px solid transparent;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: #1f2937;
+    font: inherit;
+    font-size: 0.74rem;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .macaw-wiki-item + .macaw-wiki-item {
+    margin-top: 0.1rem;
+  }
+
+  .macaw-wiki-item:hover {
+    background: #f3f5f9;
+  }
+
+  .macaw-wiki-item.active {
+    border-color: #dbe7ff;
+    background: #edf3ff;
+    color: #1d4ed8;
+  }
+
+  .macaw-wiki-item-dot {
+    flex: 0 0 auto;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--mg-other);
+  }
+
+  .macaw-wiki-item[data-category="core"] .macaw-wiki-item-dot {
+    background: var(--mg-core);
+  }
+  .macaw-wiki-item[data-category="entities"] .macaw-wiki-item-dot {
+    background: var(--mg-entities);
+  }
+  .macaw-wiki-item[data-category="projects"] .macaw-wiki-item-dot {
+    background: var(--mg-projects);
+  }
+  .macaw-wiki-item[data-category="preferences"] .macaw-wiki-item-dot {
+    background: var(--mg-preferences);
+  }
+  .macaw-wiki-item[data-category="facts"] .macaw-wiki-item-dot {
+    background: var(--mg-facts);
+  }
+  .macaw-wiki-item[data-category="skills"] .macaw-wiki-item-dot {
+    background: var(--mg-skills);
+  }
+
+  .macaw-wiki-item-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .macaw-wiki-main {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .macaw-wiki-state {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    color: #6b7280;
+    font-size: 0.82rem;
+    text-align: center;
+  }
+
+  .macaw-wiki-state.error {
+    color: #b91c1c;
+  }
+
+  .macaw-wiki-reader {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    width: 100%;
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1rem 1.5rem 3rem;
+  }
+
+  .macaw-wiki-crumb {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: -1rem -1.5rem 0.85rem;
+    padding: 0.55rem 1.5rem;
+    border-bottom: 1px solid #eef0f3;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(4px);
+    color: #0f172a;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.74rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .macaw-wiki-reader .macaw-markdown {
+    color: #1f2937;
+    font-size: 0.9rem;
+    line-height: 1.65;
+  }
+
+  .macaw-wiki-reader .macaw-markdown h1,
+  .macaw-wiki-reader .macaw-markdown h2,
+  .macaw-wiki-reader .macaw-markdown h3,
+  .macaw-wiki-reader .macaw-markdown h4 {
+    margin: 1.4rem 0 0.5rem;
+    color: #0f172a;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .macaw-wiki-reader .macaw-markdown h1 {
+    margin-top: 0;
+    font-size: 1.35rem;
+  }
+
+  .macaw-wiki-reader .macaw-markdown h2 {
+    padding-top: 0.85rem;
+    border-top: 1px solid #eef0f3;
+    font-size: 1.1rem;
+  }
+
+  .macaw-wiki-reader .macaw-markdown h3 {
+    font-size: 0.98rem;
+  }
+
+  .macaw-wiki-reader .macaw-markdown h4 {
+    font-size: 0.88rem;
+    color: #334155;
+  }
+
+  .macaw-wiki-reader .macaw-markdown p {
+    margin: 0.5rem 0;
+  }
+
+  .macaw-wiki-reader .macaw-markdown ul,
+  .macaw-wiki-reader .macaw-markdown ol {
+    margin: 0.4rem 0;
+    padding-left: 1.25rem;
+  }
+
+  .macaw-wiki-reader .macaw-markdown li {
+    margin: 0.2rem 0;
+  }
+
+  .macaw-wiki-reader .macaw-markdown li > p {
+    margin: 0.15rem 0;
+  }
+
+  .macaw-wiki-reader .macaw-markdown a {
+    color: #1d4ed8;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 120ms ease;
+  }
+
+  .macaw-wiki-reader .macaw-markdown a:hover {
+    border-bottom-color: #1d4ed8;
+  }
+
+  .macaw-wiki-reader .macaw-markdown code {
+    padding: 0.05rem 0.32rem;
+    border-radius: 0.3rem;
+    background: #f3f5f9;
+    color: #0f172a;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.82em;
+  }
+
+  .macaw-wiki-reader .macaw-markdown pre {
+    margin: 0.7rem 0;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid #e6eaf0;
+    border-radius: 0.5rem;
+    background: #f7f8fb;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+
+  .macaw-wiki-reader .macaw-markdown pre code {
+    padding: 0;
+    background: transparent;
+    font-size: 0.82rem;
+  }
+
+  .macaw-wiki-reader .macaw-markdown blockquote {
+    margin: 0.6rem 0;
+    padding: 0.1rem 0 0.1rem 0.85rem;
+    border-left: 3px solid #cbd5e1;
+    color: #4b5563;
+  }
+
+  .macaw-wiki-reader .macaw-markdown hr {
+    margin: 1.2rem 0;
+    border: 0;
+    border-top: 1px solid #e6eaf0;
+  }
+
+  .macaw-wiki-reader .macaw-markdown table {
+    width: 100%;
+    margin: 0.7rem 0;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  .macaw-wiki-reader .macaw-markdown th,
+  .macaw-wiki-reader .macaw-markdown td {
+    padding: 0.35rem 0.55rem;
+    border: 1px solid #e6eaf0;
+    text-align: left;
+  }
+
+  .macaw-wiki-reader .macaw-markdown thead th {
+    background: #f7f8fb;
+    color: #0f172a;
+  }
+
+  .macaw-wiki-reader .macaw-markdown img {
+    max-width: 100%;
+    border-radius: 0.4rem;
+  }
+
+  .macaw-wiki-graph {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  @media (max-width: 1080px) {
+    .macaw-wiki-body {
+      grid-template-columns: 13rem minmax(0, 1fr);
+    }
+
+    .macaw-wiki-search {
+      max-width: 14rem;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .macaw-wiki-body {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .macaw-wiki-side {
+      max-height: 14rem;
+      border-right: 0;
+      border-bottom: 1px solid #eef0f3;
+    }
+
+    .macaw-wiki-header {
+      flex-wrap: wrap;
+    }
+
+    .macaw-wiki-search {
+      order: 5;
+      flex: 1 0 100%;
+      max-width: none;
+      margin: 0.35rem 0 0;
+    }
+
+    .macaw-wiki-reader {
+      padding: 0.85rem 1rem 2rem;
+    }
+
+    .macaw-wiki-crumb {
+      margin: -0.85rem -1rem 0.7rem;
+      padding: 0.45rem 1rem;
+    }
+  }
+
+  .macaw-tasks-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    background: #f3f4f6;
+    color: #1f2937;
+  }
+
+  .macaw-tasks-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid #e4e8ee;
+    background: #ffffff;
+  }
+
+  .macaw-tasks-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #0f172a;
+  }
+
+  .macaw-tasks-count {
+    font-size: 0.74rem;
+    color: #6b7280;
+  }
+
+  .macaw-tasks-refresh,
+  .macaw-tasks-close {
+    margin-left: auto;
+    padding: 0.4rem 0.85rem;
+    border-radius: 0.45rem;
+    border: 1px solid #dbe1ea;
+    background: #ffffff;
+    color: #1f2937;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+
+  .macaw-tasks-close {
+    margin-left: 0;
+    padding: 0.25rem 0.6rem;
+    font-size: 1.05rem;
+    line-height: 1;
+    color: #475569;
+  }
+
+  .macaw-tasks-refresh:hover,
+  .macaw-tasks-close:hover {
+    background: #eef1f6;
+    border-color: #c8d0dd;
+  }
+
+  .macaw-tasks-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(260px, 340px) 1fr;
+    background: #f3f4f6;
+  }
+
+  .macaw-tasks-list {
+    overflow-y: auto;
+    padding: 0.85rem;
+    border-right: 1px solid #e4e8ee;
+    background: #fafbfc;
+  }
+
+  .macaw-tasks-banner {
+    font-size: 0.74rem;
+    line-height: 1.5;
+    padding: 0.65rem 0.8rem;
+    margin-bottom: 0.85rem;
+    border-radius: 0.5rem;
+    background: #eff6ff;
+    border: 1px solid #dbeafe;
+    color: #1e3a8a;
+  }
+
+  .macaw-tasks-banner em {
+    font-style: italic;
+    color: #1d4ed8;
+  }
+
+  .macaw-tasks-empty {
+    padding: 0.9rem;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    text-align: center;
+  }
+
+  .macaw-tasks-error {
+    margin: 0 0 0.9rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.45rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    font-size: 0.78rem;
+  }
+
+  .macaw-tasks-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    margin-bottom: 0.4rem;
+    border-radius: 0.5rem;
+    border: 1px solid #e4e8ee;
+    background: #ffffff;
+    color: #1f2937;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  .macaw-tasks-item:hover {
+    border-color: #c8d0dd;
+  }
+
+  .macaw-tasks-item.active {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 1px #6366f1;
+  }
+
+  .macaw-tasks-item-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .macaw-tasks-item-row.sub {
+    font-size: 0.7rem;
+    color: #64748b;
+    justify-content: space-between;
+  }
+
+  .macaw-tasks-item-name {
+    font-size: 0.84rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #0f172a;
+  }
+
+  .macaw-tasks-item-sched,
+  .macaw-tasks-item-next {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .macaw-tasks-pill {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: #e5e7eb;
+    color: #374151;
+  }
+
+  .macaw-tasks-pill.active {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .macaw-tasks-pill.paused {
+    background: #f1f5f9;
+    color: #475569;
+  }
+
+  .macaw-tasks-pill.completed {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+
+  .macaw-tasks-pill.failed {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .macaw-tasks-pill.silent {
+    background: #f3e8ff;
+    color: #6b21a8;
+  }
+
+  .macaw-tasks-pill.running {
+    background: #fef9c3;
+    color: #854d0e;
+  }
+
+  .macaw-tasks-detail {
+    overflow-y: auto;
+    padding: 1.5rem 2rem;
+    background: #f3f4f6;
+  }
+
+  .macaw-tasks-detail-head {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin-bottom: 1rem;
+  }
+
+  .macaw-tasks-detail-head h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .macaw-tasks-meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.4rem 1.25rem;
+    margin: 0 0 1.25rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.6rem;
+    border: 1px solid #e4e8ee;
+    background: #ffffff;
+    font-size: 0.8rem;
+  }
+
+  .macaw-tasks-meta dt {
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  .macaw-tasks-meta dd {
+    margin: 0;
+    color: #1f2937;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .macaw-tasks-meta dd small {
+    color: #94a3b8;
+    margin-left: 0.45rem;
+  }
+
+  .macaw-tasks-actions {
+    display: flex;
+    gap: 0.55rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .macaw-tasks-actions button {
+    padding: 0.45rem 0.95rem;
+    border-radius: 0.45rem;
+    border: 1px solid #dbe1ea;
+    background: #ffffff;
+    color: #1f2937;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+
+  .macaw-tasks-actions button:hover {
+    background: #eef1f6;
+    border-color: #c8d0dd;
+  }
+
+  .macaw-tasks-actions button.danger {
+    border-color: #fecaca;
+    color: #b91c1c;
+  }
+
+  .macaw-tasks-actions button.danger:hover {
+    background: #fef2f2;
+    border-color: #fca5a5;
+  }
+
+  .macaw-tasks-detail h3 {
+    margin: 1.25rem 0 0.6rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #475569;
+  }
+
+  .macaw-tasks-prompt {
+    margin: 0 0 0.5rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.55rem;
+    border: 1px solid #e4e8ee;
+    background: #ffffff;
+    color: #1f2937;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font: inherit;
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+
+  .macaw-tasks-runs {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .macaw-tasks-run {
+    padding: 0.65rem 0.85rem;
+    border-radius: 0.5rem;
+    background: #ffffff;
+    border: 1px solid #e4e8ee;
+  }
+
+  .macaw-tasks-run.failed {
+    border-color: #fecaca;
+  }
+
+  .macaw-tasks-run-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.76rem;
+    color: #475569;
+  }
+
+  .macaw-tasks-run-time {
+    color: #475569;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .macaw-tasks-run-dur {
+    margin-left: auto;
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .macaw-tasks-run-summary {
+    margin-top: 0.45rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: #1f2937;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .macaw-tasks-run-error {
+    margin-top: 0.45rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 0.4rem;
+    background: #fef2f2;
+    font-size: 0.74rem;
+    color: #991b1b;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .macaw-tasks-item-step,
+  .macaw-tasks-run-progress {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.4rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: 0.4rem;
+    background: #fef9c3;
+    border: 1px solid #fde68a;
+    color: #854d0e;
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .macaw-tasks-run-progress {
+    font-size: 0.78rem;
+  }
+
+  .macaw-tasks-spinner {
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: currentColor;
+    animation: macaw-tasks-pulse 0.9s ease-in-out infinite;
+    flex: 0 0 auto;
+  }
+
+  @keyframes macaw-tasks-pulse {
+    0%,
+    100% {
+      opacity: 0.35;
+      transform: scale(0.85);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.15);
+    }
+  }
+
+  .macaw-tasks-model {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .macaw-tasks-model-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0.3rem 0.45rem;
+    border-radius: 0.4rem;
+    border: 1px solid #dbe1ea;
+    background: #ffffff;
+    color: #1f2937;
+    font: inherit;
+    font-size: 0.78rem;
+  }
+
+  .macaw-tasks-model-apply {
+    padding: 0.3rem 0.7rem;
+    border-radius: 0.4rem;
+    border: 1px solid #6366f1;
+    background: #eef2ff;
+    color: #1e1b4b;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.74rem;
+    font-weight: 600;
+  }
+
+  .macaw-tasks-model-apply:hover {
+    background: #e0e7ff;
+  }
+
+  .macaw-tasks-new {
+    padding: 0.4rem 0.85rem;
+    border-radius: 0.45rem;
+    border: 1px solid #6366f1;
+    background: #6366f1;
+    color: #ffffff;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-left: auto;
+  }
+
+  .macaw-tasks-new:hover {
+    background: #4f46e5;
+    border-color: #4f46e5;
+  }
+
+  .macaw-tasks-header .macaw-tasks-refresh {
+    margin-left: 0.5rem;
+  }
+
+  .macaw-tasks-search {
+    width: 100%;
+    margin-bottom: 0.55rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.45rem;
+    border: 1px solid #dbe1ea;
+    background: #ffffff;
+    font: inherit;
+    font-size: 0.78rem;
+    color: #1f2937;
+  }
+
+  .macaw-tasks-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .macaw-tasks-filter {
+    flex: 1 1 auto;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.4rem;
+    border: 1px solid #dbe1ea;
+    background: #ffffff;
+    color: #475569;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.7rem;
+    text-align: center;
+  }
+
+  .macaw-tasks-filter:hover {
+    background: #eef1f6;
+  }
+
+  .macaw-tasks-filter.active {
+    border-color: #6366f1;
+    background: #eef2ff;
+    color: #1e1b4b;
+  }
+
+  .macaw-tasks-run-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.76rem;
+  }
+
+  .macaw-tasks-run-attempts {
+    color: #b45309;
+    font-size: 0.7rem;
+    font-weight: 500;
+  }
+
+  .macaw-tasks-run-cancel {
+    margin-left: auto;
+    padding: 0.1rem 0.45rem;
+    border-radius: 0.3rem;
+    border: 1px solid #fca5a5;
+    background: #fef2f2;
+    color: #991b1b;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.7rem;
+    line-height: 1;
+  }
+
+  .macaw-tasks-run-cancel:hover {
+    background: #fee2e2;
+  }
+
+  .macaw-tasks-run-detail {
+    margin-top: 0.65rem;
+    padding-top: 0.6rem;
+    border-top: 1px dashed #e4e8ee;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .macaw-tasks-run-detail-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+    font-weight: 600;
+  }
+
+  .macaw-tasks-run-open {
+    padding: 0.25rem 0.6rem;
+    border-radius: 0.4rem;
+    border: 1px solid #dbe1ea;
+    background: #ffffff;
+    color: #1f2937;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.7rem;
+  }
+
+  .macaw-tasks-run-open:hover {
+    background: #eef1f6;
+  }
+
+  .macaw-tasks-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .macaw-tasks-step {
+    display: grid;
+    grid-template-columns: max-content max-content 1fr;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.35rem;
+    background: #fafbfc;
+    border: 1px solid #eef2f6;
+    font-size: 0.74rem;
+  }
+
+  .macaw-tasks-step-time {
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.7rem;
+  }
+
+  .macaw-tasks-step-kind {
+    text-transform: uppercase;
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    background: #e5e7eb;
+    color: #374151;
+  }
+
+  .macaw-tasks-step-kind.kind-tool_running,
+  .macaw-tasks-step-kind.kind-tool_completed {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+
+  .macaw-tasks-step-kind.kind-tool_error,
+  .macaw-tasks-step-kind.kind-error {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .macaw-tasks-step-kind.kind-retry {
+    background: #fef9c3;
+    color: #854d0e;
+  }
+
+  .macaw-tasks-step-kind.kind-timeout,
+  .macaw-tasks-step-kind.kind-cancelled {
+    background: #fde68a;
+    color: #92400e;
+  }
+
+  .macaw-tasks-step-kind.kind-summary {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .macaw-tasks-step-msg {
+    color: #1f2937;
+    word-break: break-word;
+  }
+
+  .macaw-tasks-replay {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.5rem;
+    border-radius: 0.45rem;
+    background: #fafbfc;
+    border: 1px solid #eef2f6;
+    max-height: 480px;
+    overflow-y: auto;
+  }
+
+  .macaw-tasks-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.4);
+  }
+
+  .macaw-tasks-modal-card {
+    width: min(640px, 92vw);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border-radius: 0.7rem;
+    border: 1px solid #e4e8ee;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+    overflow: hidden;
+  }
+
+  .macaw-tasks-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1.1rem;
+    border-bottom: 1px solid #e4e8ee;
+  }
+
+  .macaw-tasks-modal-head h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .macaw-tasks-form {
+    padding: 0.85rem 1.1rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  .macaw-tasks-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    color: #1f2937;
+  }
+
+  .macaw-tasks-form label.grow {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .macaw-tasks-form label > span {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+    font-weight: 600;
+  }
+
+  .macaw-tasks-form input,
+  .macaw-tasks-form select,
+  .macaw-tasks-form textarea {
+    padding: 0.4rem 0.55rem;
+    border-radius: 0.45rem;
+    border: 1px solid #dbe1ea;
+    background: #ffffff;
+    color: #1f2937;
+    font: inherit;
+    font-size: 0.82rem;
+  }
+
+  .macaw-tasks-form textarea {
+    resize: vertical;
+    line-height: 1.5;
+  }
+
+  .macaw-tasks-form-row {
+    display: flex;
+    gap: 0.7rem;
+    align-items: flex-end;
+  }
+
+  .macaw-tasks-form-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    align-items: center;
+    font-size: 0.74rem;
+    color: #6b7280;
+  }
+
+  .macaw-tasks-form-presets button {
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid #dbe1ea;
+    background: #f3f4f6;
+    color: #374151;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.72rem;
+  }
+
+  .macaw-tasks-form-presets button:hover {
+    background: #e5e7eb;
+  }
+
+  .macaw-tasks-modal-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.55rem;
+    padding: 0.75rem 1.1rem;
+    border-top: 1px solid #e4e8ee;
+    background: #fafbfc;
+  }
+
+  .macaw-tasks-modal-foot button {
+    padding: 0.45rem 1.05rem;
+    border-radius: 0.45rem;
+    border: 1px solid #dbe1ea;
+    background: #ffffff;
+    color: #1f2937;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82rem;
+  }
+
+  .macaw-tasks-modal-foot button.primary {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: #ffffff;
+    font-weight: 600;
+  }
+
+  .macaw-tasks-modal-foot button.primary:hover {
+    background: #4f46e5;
+    border-color: #4f46e5;
+  }
+
+  .macaw-tasks-modal-foot button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 900px) {
+    .macaw-tasks-body {
+      grid-template-columns: 1fr;
+    }
+
+    .macaw-tasks-list {
+      max-height: 40vh;
+      border-right: none;
+      border-bottom: 1px solid #e4e8ee;
+    }
+  }
+
+  .macaw-toasts {
+    top: 0.65rem;
+    right: 0.65rem;
+    gap: 0.4rem;
+  }
+
+  .macaw-toast {
+    min-width: 16rem;
+    max-width: 22rem;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid #e3e6ec;
+    border-left: 3px solid #2563eb;
+    border-radius: 0.5rem;
+    background: #ffffff;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.1);
+    color: #1f2937;
+  }
+
+  .macaw-toast:hover {
+    border-color: #cbd5e1;
+  }
+
+  .macaw-toast-title {
+    font-size: 0.74rem;
+    color: #1f2937;
+  }
+
+  .macaw-toast-body {
+    font-size: 0.68rem;
+    color: #475569;
+  }
+
+  .macaw-toast-close {
+    color: #94a3b8;
+  }
+
+  .macaw-toast-close:hover {
+    background: #f1f5f9;
+    color: #1f2937;
+  }
+
+  .macaw-toast-idle {
+    border-left-color: #16a34a;
+  }
+
+  .macaw-toast-question {
+    border-left-color: #2563eb;
+  }
+
+  .macaw-toast-permission {
+    border-left-color: #d97706;
+  }
+
+  @media (max-width: 1280px) {
+    .macaw-shell {
+      grid-template-columns: var(--macaw-left, 7.6rem) 0.4rem minmax(0, 1fr) 0.4rem var(--macaw-right, 14rem);
+    }
+  }
+
+  @media (max-width: 1080px) {
+    .macaw-shell {
+      grid-template-columns: 1fr;
+    }
+
+    .macaw-grip {
+      display: none;
+    }
+
+    .macaw-side,
+    .macaw-pane {
+      min-height: auto;
+      border-width: 0;
+    }
+
+    .macaw-status {
+      margin-top: 0;
+    }
+  }
+}

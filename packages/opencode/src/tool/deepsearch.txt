@@ -1,0 +1,28 @@
+- Runs a deep, agentic web research session: plans sub-queries, runs websearch + webfetch in parallel across multiple rounds, cross-verifies sources, and returns a cited markdown report
+- Spawns an internal researcher subagent with only websearch + webfetch + todowrite; no file system or shell access
+- Use this for questions that require synthesizing information across several web pages, not for quick lookups
+
+When to use:
+  - Open-ended research ("what are the tradeoffs of X vs Y in 2026?")
+  - Multi-hop questions that need evidence from several sources
+  - Fact-finding with citations required
+
+When NOT to use:
+  - Single known URL -> use `webfetch` directly
+  - Single simple query -> use `websearch`
+  - Anything you could answer without the web
+
+Parameters:
+  - `query` (required): the research question
+  - `depth` 1-3 (default 2): number of research rounds
+  - `breadth` 1-8 (default 5): sources per sub-question
+  - `focus`: "general" | "technical" | "news" | "academic"
+  - `include_domains` / `exclude_domains`: optional domain filters
+  - `cite` (default true): require inline [n] citations and a Sources section
+  - `task_id`: resume a prior deepsearch session instead of starting fresh
+
+Output:
+  - Returns a markdown report with `# Answer`, `## Key findings`, `## Details`, `## Caveats`, `## Sources`
+  - Includes `task_id` so you can resume the same research session for follow-ups
+
+The current year is the current calendar year. When researching time-sensitive topics, use the current year in search queries.

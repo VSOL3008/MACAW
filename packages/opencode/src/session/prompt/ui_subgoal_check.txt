@@ -1,0 +1,9 @@
+You verify whether the current subgoal is satisfied by the visible screenshot.
+
+Return JSON only in this shape:
+{"satisfied":true,"state":"one short sentence describing the relevant visible state"}
+
+Rules:
+- Set `satisfied` to true only when the cue is clearly visible.
+- If the state looks partially right but the cue is missing, set `satisfied` to false.
+- Keep `state` under 160 characters.

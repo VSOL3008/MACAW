@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>ai.macaw.desktop</id>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <name>MACAW</name>
+  <summary>Local AI desktop automation agent</summary>
+
+  <developer id="ai.macaw.desktop">
+    <name>MACAW</name>
+  </developer>
+
+  <description>
+    <p>
+      MACAW is a local desktop automation agent that runs with Ollama and helps users inspect the screen,
+      control applications, and work with local files and shell commands.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">ai.macaw.desktop.desktop</launchable>
+
+  <content_rating type="oars-1.1" />
+</component>

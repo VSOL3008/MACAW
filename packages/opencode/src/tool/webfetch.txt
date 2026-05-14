@@ -1,0 +1,34 @@
+- Fetches content from one or more URLs and returns the most relevant text/markdown/html for the agent
+- Supports single `url` OR `urls[]` (parallel, up to 5)
+- Extracts the main article content by default (Mozilla Readability) - strips nav/footer/ads
+- Falls back to Exa live-crawl when the page is JS-rendered or returns an error
+- Handles PDFs natively (extracts text with pdfjs)
+- Optional `query` focuses output on sections relevant to the query (keyword + TF-IDF scoring)
+- Supports pagination via `offset` + `maxChars`; returns `next_offset` when truncated
+- Returns outbound links in metadata so the agent can follow them
+- In-memory cache (60s) so repeated fetches of the same URL during a session are instant
+- Optional `crawl` mode: given one seed URL, BFS-follows internal links up to maxPages/maxDepth and aggregates results
+
+Parameters:
+  - `url` OR `urls[]`: target URL(s). http(s) only. Max 5 urls per call.
+  - `format`: "markdown" (default), "text", "html", or "raw"
+  - `mode`: "article" (default; main content only) or "full" (whole page)
+  - `query`: optional focus query; only chunks relevant to the query are returned
+  - `offset`, `maxChars`: pagination. Default maxChars = 50000. Use next_offset for next page.
+  - `includeLinks`: include extracted outbound links (default true)
+  - `livecrawl`: "auto" (default, fallback if empty/blocked), "never", or "force"
+  - `timeout`: seconds, max 120
+  - `crawl`: object that turns the seed `url` into a small site crawl
+      - `maxPages` 1-25 (default 10): hard cap on pages fetched
+      - `maxDepth` 1-5 (default 2): how many link-hops past the seed
+      - `sameOrigin` (default true): only follow links on the seed's origin
+      - `include` / `exclude`: glob patterns matched against URL pathname (e.g. "/docs/**")
+      - `concurrency` 1-8 (default 4): parallel page fetches
+      - Requires exactly one URL (passed as `url`, not `urls[]`)
+
+Usage notes:
+  - Prefer `mode=article` + optional `query` for LLM efficiency; use `mode=full` only when you need navigation or chrome
+  - For multi-page research, combine with websearch/deepsearch rather than guessing URLs
+  - When a page is cut off, call again with the returned `next_offset` to continue
+  - Use `crawl` for whole-site reads (docs sites, blog archives); pair it with `query` to keep aggregated output on-topic, and with `include`/`exclude` to scope the traversal (e.g. include `["/docs/**"]`)
+  - This tool is read-only and does not modify files

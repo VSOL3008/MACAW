@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "composite": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "outDir": "node_modules/.ts-dist",
+    "isolatedModules": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "src/app.tsx",
+    "src/custom-elements.d.ts",
+    "src/index.ts",
+    "src/macaw.tsx",
+    "src/memory-graph.tsx",
+    "src/tasks-view.tsx",
+    "src/components/turn.tsx",
+    "src/constants/file-picker.ts",
+    "src/context/command.tsx",
+    "src/context/language.tsx",
+    "src/context/platform.tsx",
+    "src/context/server.tsx",
+    "src/utils/fallback.ts",
+    "src/utils/notification-click.ts",
+    "src/utils/pdf.ts",
+    "src/utils/server.ts",
+    "package.json"
+  ],
+  "exclude": ["dist", "ts-dist"]
+}

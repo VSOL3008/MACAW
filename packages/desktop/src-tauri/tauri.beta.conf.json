@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MACAW Beta",
+  "identifier": "ai.macaw.desktop.beta",
+  "bundle": {
+    "icon": [
+      "icons/beta/32x32.png",
+      "icons/beta/128x128.png",
+      "icons/beta/128x128@2x.png",
+      "icons/beta/icon.icns",
+      "icons/beta/icon.ico"
+    ],
+    "windows": {
+      "signCommand": {
+        "cmd": "powershell",
+        "args": ["-ExecutionPolicy", "Bypass", "-File", "../../../script/sign-windows.ps1", "%1"]
+      },
+      "nsis": {
+        "installerIcon": "icons/beta/icon.ico"
+      }
+    },
+    "linux": {
+      "rpm": {
+        "compression": {
+          "type": "none"
+        }
+      }
+    }
+  }
+}
