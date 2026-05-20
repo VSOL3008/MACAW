@@ -38,8 +38,9 @@ impl MainWindow {
 
     pub fn create(app: &AppHandle) -> Result<Self, tauri::Error> {
         if let Some(window) = app.get_webview_window(Self::LABEL) {
-            let _ = window.set_focus();
+            let _ = window.show();
             let _ = window.unminimize();
+            let _ = window.set_focus();
             return Ok(Self(window));
         }
 
@@ -73,25 +74,26 @@ impl MainWindow {
 
         setup_window_state_listener(app, &window);
 
-        #[cfg(windows)]
-        {
-            use tauri_plugin_decorum::WebviewWindowExt;
-            let _ = window.create_overlay_titlebar();
-        }
-
         Ok(Self(window))
     }
 }
 
 fn setup_window_state_listener(app: &AppHandle, window: &WebviewWindow) {
     let (tx, mut rx) = mpsc::channel::<()>(1);
+    let main = window.clone();
 
     window.on_window_event(move |event| {
         use tauri::WindowEvent;
-        if !matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_)) {
-            return;
+        match event {
+            WindowEvent::CloseRequested { api, .. } => {
+                api.prevent_close();
+                let _ = main.hide();
+            }
+            WindowEvent::Moved(_) | WindowEvent::Resized(_) => {
+                let _ = tx.try_send(());
+            }
+            _ => {}
         }
-        let _ = tx.try_send(());
     });
 
     tokio::spawn({
@@ -147,10 +149,17 @@ impl LoadingWindow {
 
 fn base_window_config<'a, R: Runtime, M: Manager<R>>(
     window_builder: WebviewWindowBuilder<'a, R, M>,
-    _app: &AppHandle,
+    _app: &'a AppHandle,
     decorations: bool,
 ) -> WebviewWindowBuilder<'a, R, M> {
     let window_builder = window_builder.decorations(decorations);
+    let window_builder = if let Some(icon) = _app.default_window_icon() {
+        window_builder
+            .icon(icon.clone())
+            .expect("Failed to set window icon")
+    } else {
+        window_builder
+    };
 
     #[cfg(windows)]
     let window_builder = window_builder
@@ -161,8 +170,7 @@ fn base_window_config<'a, R: Runtime, M: Manager<R>>(
         .additional_browser_args(
             "--proxy-bypass-list=<-loopback> --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection",
         )
-        .data_directory(_app.path().config_dir().expect("Failed to get config dir").join(_app.config().product_name.clone().unwrap()))
-        .decorations(false);
+        .data_directory(_app.path().config_dir().expect("Failed to get config dir").join(_app.config().product_name.clone().unwrap()));
 
     #[cfg(target_os = "macos")]
     let window_builder = window_builder

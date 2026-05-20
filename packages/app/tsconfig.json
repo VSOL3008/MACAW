@@ -36,7 +36,6 @@
     "src/context/server.tsx",
     "src/utils/fallback.ts",
     "src/utils/notification-click.ts",
-    "src/utils/pdf.ts",
     "src/utils/server.ts",
     "package.json"
   ],

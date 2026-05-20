@@ -54,6 +54,19 @@ import { SessionRunState } from "./run-state"
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
 
+const pdfpath = /(?:^|[\s([{"'`])((?:[A-Za-z]:[\\/]|\\\\|\/|~\/)[^\r\n]*?\.pdf)(?=$|[\s)\]}"'`,.!?;:])/gi
+
+function pdfs(text: string) {
+  return Array.from(text.matchAll(pdfpath))
+    .map((match) => match[1]?.trim())
+    .filter((item): item is string => !!item)
+}
+
+function filename(filepath: string) {
+  if (path.win32.isAbsolute(filepath)) return path.win32.basename(filepath)
+  return path.basename(filepath)
+}
+
 const STRUCTURED_OUTPUT_DESCRIPTION = `Use this tool to return your final response in the requested structured format.
 
 IMPORTANT:
@@ -140,6 +153,41 @@ export namespace SessionPrompt {
           { concurrency: "unbounded", discard: true },
         )
         return parts
+      })
+
+      const expand = Effect.fn("SessionPrompt.expandPdfPaths")(function* (parts: PromptInput["parts"]) {
+        const seen = new Set(
+          parts.flatMap((part) => {
+            if (part.type !== "file") return []
+            if (!part.url.startsWith("file:")) return [part.url]
+            try {
+              return [pathToFileURL(fileURLToPath(part.url)).href]
+            } catch {
+              return [part.url]
+            }
+          }),
+        )
+        const extra: PromptInput["parts"] = []
+        for (const part of parts) {
+          if (part.type !== "text" || part.ignored) continue
+          for (const raw of pdfs(part.text)) {
+            const filepath = raw.startsWith("~/") ? path.join(os.homedir(), raw.slice(2)) : raw
+            if (!path.isAbsolute(filepath) && !path.win32.isAbsolute(filepath)) continue
+            const url = pathToFileURL(filepath).href
+            if (seen.has(url)) continue
+            const stat = yield* fsys.stat(filepath).pipe(Effect.option)
+            if (Option.isNone(stat) || stat.value.type === "Directory") continue
+            seen.add(url)
+            extra.push({
+              type: "file",
+              url,
+              filename: filename(filepath),
+              mime: "application/pdf",
+            })
+          }
+        }
+        if (extra.length === 0) return parts
+        return [...parts, ...extra]
       })
 
       const title = Effect.fn("SessionPrompt.ensureTitle")(function* (input: {
@@ -1095,7 +1143,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                     }),
                   )
 
-                if (part.mime === "text/plain") {
+                if (part.mime === "text/plain" || part.mime === "application/pdf") {
                   let offset: number | undefined
                   let limit: number | undefined
                   const range = { start: url.searchParams.get("start"), end: url.searchParams.get("end") }
@@ -1131,10 +1179,13 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                       text: `Called the Read tool with the following input: ${JSON.stringify(args)}`,
                     },
                   ]
-                  const exit = yield* provider.getModel(info.model.providerID, info.model.modelID).pipe(
-                    Effect.flatMap((mdl) => execRead(args, { model: mdl })),
-                    Effect.exit,
-                  )
+                  const fx =
+                    part.mime === "application/pdf"
+                      ? execRead(args)
+                      : provider.getModel(info.model.providerID, info.model.modelID).pipe(
+                          Effect.flatMap((mdl) => execRead(args, { model: mdl })),
+                        )
+                  const exit = yield* fx.pipe(Effect.exit)
                   if (Exit.isSuccess(exit)) {
                     const result = exit.value
                     pieces.push({
@@ -1263,7 +1314,8 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           return [{ ...part, messageID: info.id, sessionID: input.sessionID }]
         })
 
-        const parts = yield* Effect.forEach(input.parts, resolvePart, { concurrency: "unbounded" }).pipe(
+        const expanded = yield* expand(input.parts)
+        const parts = yield* Effect.forEach(expanded, resolvePart, { concurrency: "unbounded" }).pipe(
           Effect.map((x) => x.flat().map(assign)),
         )
 

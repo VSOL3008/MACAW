@@ -5,6 +5,7 @@ import { InstanceState } from "@/effect/instance-state"
 import { makeRuntime } from "@/effect/run-service"
 import { Global } from "../global"
 import { Filesystem } from "../util/filesystem"
+import * as Ollama from "../util/ollama"
 import { ProviderTransform } from "./transform"
 import { ModelID, ProviderID } from "./schema"
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
@@ -28,6 +29,7 @@ type Tag = {
     family?: string
     families?: string[]
   }
+  capabilities?: string[]
 }
 
 type ModelCfg = z.infer<typeof Config.Model>
@@ -40,8 +42,8 @@ type State = {
 
 const OLLAMA_PROVIDER = ProviderID.ollama
 const OLLAMA_NPM = "@ai-sdk/openai-compatible"
-const OLLAMA_URL = "http://localhost:11434/v1"
-const OLLAMA_ENV = ["OLLAMA_API_KEY"]
+const OLLAMA_URL = Ollama.DEFAULT_URL
+const OLLAMA_ENV = ["OLLAMA_API_KEY", "OLLAMA_BASE_URL", "OLLAMA_HOST"]
 const MODEL_FALLBACK = "qwen3:latest"
 const SMALL_HINTS = ["1.5b", "3b", "mini", "small"]
 const PRIORITY = ["qwen3", "qwen2.5", "phi4", "llama3.2", "llama3.1", "mistral", "deepseek-r1"]
@@ -53,7 +55,7 @@ function pick<T>(...list: Array<T | undefined>) {
 }
 
 function root(url: string) {
-  return url.replace(/\/+$/, "").replace(/\/v1$/, "")
+  return Ollama.root(url)
 }
 
 function truthy(list?: string[], value?: string) {
@@ -67,6 +69,7 @@ function keyword(id: string, list: string[]) {
 }
 
 function vision(id: string, tag?: Tag) {
+  if (tag?.capabilities?.includes("vision")) return true
   const list = [id, tag?.details?.family, ...(tag?.details?.families ?? [])].filter((item): item is string =>
     Boolean(item),
   )
@@ -235,6 +238,25 @@ function mergeModel(base: Provider.Model, cfg?: ModelCfg) {
   return model
 }
 
+const SHOW_CACHE = new Map<string, { modified_at?: string; capabilities: string[] }>()
+
+async function showCapabilities(url: string, tag: Tag, headers?: HeadersInit): Promise<string[]> {
+  const key = `${root(url)}::${tag.name}`
+  const cached = SHOW_CACHE.get(key)
+  if (cached && cached.modified_at === tag.modified_at) return cached.capabilities
+  const res = await fetch(`${root(url)}/api/show`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(headers ?? {}) },
+    body: JSON.stringify({ model: tag.name }),
+    signal: AbortSignal.timeout(2_000),
+  }).catch(() => undefined)
+  if (!res?.ok) return cached?.capabilities ?? []
+  const json = (await res.json().catch(() => undefined)) as { capabilities?: unknown } | undefined
+  const caps = Array.isArray(json?.capabilities) ? (json.capabilities.filter((c) => typeof c === "string") as string[]) : []
+  SHOW_CACHE.set(key, { modified_at: tag.modified_at, capabilities: caps })
+  return caps
+}
+
 async function discover(url: string, key?: string) {
   const headers = key ? { Authorization: `Bearer ${key}` } : undefined
   const res = await fetch(`${root(url)}/api/tags`, {
@@ -262,13 +284,19 @@ async function discover(url: string, key?: string) {
     })
     .safeParse(json)
   if (!tags.success) return [] as Tag[]
-  return tags.data.models
+  const enriched = await Promise.all(
+    tags.data.models.map(async (tag) => ({
+      ...tag,
+      capabilities: await showCapabilities(url, tag, headers),
+    })),
+  )
+  return enriched
 }
 
 async function build(cfg: Config.Info, saved?: string) {
   const providerCfg = cfg.provider?.[OLLAMA_PROVIDER]
-  const key = pick(providerCfg?.options?.apiKey, saved, Env.get("OLLAMA_API_KEY"))
-  const baseURL = pick(providerCfg?.options?.baseURL, Env.get("OLLAMA_BASE_URL"), OLLAMA_URL)!
+  const key = pick(providerCfg?.options?.apiKey, saved, Ollama.envKey())
+  const baseURL = pick(providerCfg?.options?.baseURL, Ollama.envURL(), OLLAMA_URL)!
   const models: Record<string, Provider.Model> = {}
   const tags = await discover(baseURL, key)
   for (const tag of tags) {

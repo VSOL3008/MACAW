@@ -21,7 +21,6 @@ import { createSdkForServer } from "@/utils/server"
 import { MemoryGraph } from "@/memory-graph"
 import { TasksView } from "@/tasks-view"
 import { createFallback, FALLBACK_TIMEOUT_MS } from "@/utils/fallback"
-import { extractPdfText, textUrl } from "@/utils/pdf"
 import {
   type Row,
   Reasoning,
@@ -47,8 +46,6 @@ type Attachment = {
   mime: string
   filename: string
   url: string
-  sendMime?: string
-  sendUrl?: string
 }
 
 function read(key: string) {
@@ -651,8 +648,8 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
       parts: [
         ...attachments.map((item) => ({
           type: "file" as const,
-          mime: item.sendMime ?? item.mime,
-          url: item.sendUrl ?? item.url,
+          mime: item.mime,
+          url: item.url,
           filename: item.filename,
         })),
         ...(text ? [{ type: "text" as const, text }] : []),
@@ -679,21 +676,6 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     })
   }
 
-  function bytes(file: File) {
-    return new Promise<ArrayBuffer>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        if (reader.result instanceof ArrayBuffer) {
-          resolve(reader.result)
-          return
-        }
-        reject(new Error(`Failed to read ${file.name}`))
-      }
-      reader.onerror = () => reject(reader.error ?? new Error(`Failed to read ${file.name}`))
-      reader.readAsArrayBuffer(file)
-    })
-  }
-
   const textExt = new Set([
     "txt", "md", "markdown", "rst", "log",
     "csv", "tsv", "json", "yaml", "yml", "toml", "xml", "ini", "cfg", "env",
@@ -702,12 +684,41 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     "sql", "html", "htm", "css", "scss", "less", "vue", "svelte",
   ])
 
-  function mimeFor(file: File) {
-    if (file.type) return file.type
-    const dot = file.name.lastIndexOf(".")
-    const ext = dot === -1 ? "" : file.name.slice(dot + 1).toLowerCase()
+  const mimeByExt = new Map<string, string>([
+    ["pdf", "application/pdf"],
+    ["png", "image/png"],
+    ["jpg", "image/jpeg"],
+    ["jpeg", "image/jpeg"],
+    ["gif", "image/gif"],
+    ["webp", "image/webp"],
+    ["svg", "image/svg+xml"],
+    ["json", "application/json"],
+    ["xml", "application/xml"],
+  ])
+
+  function mimeFromName(name: string) {
+    const dot = name.lastIndexOf(".")
+    const ext = dot === -1 ? "" : name.slice(dot + 1).toLowerCase()
+    const direct = mimeByExt.get(ext)
+    if (direct) return direct
     if (textExt.has(ext)) return "text/plain"
     return "application/octet-stream"
+  }
+
+  function mimeFor(file: File) {
+    if (file.type) return file.type
+    return mimeFromName(file.name)
+  }
+
+  function basename(filepath: string) {
+    const idx = filepath.search(/[/\\][^/\\]*$/)
+    return idx === -1 ? filepath : filepath.slice(idx + 1)
+  }
+
+  function fileUrl(filepath: string) {
+    const normalized = filepath.replace(/\\/g, "/")
+    const head = normalized.startsWith("/") ? "file://" : "file:///"
+    return head + encodeURI(normalized).replace(/#/g, "%23").replace(/\?/g, "%3F")
   }
 
   async function addFiles(list: FileList | null) {
@@ -716,26 +727,12 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     const next = await Promise.all(
       files.map((file) =>
         data(file)
-          .then(async (url): Promise<Attachment> => {
-            const mime = mimeFor(file)
-            if (mime === "application/pdf") {
-              const text = await bytes(file).then(extractPdfText)
-              return {
-                id: crypto.randomUUID(),
-                mime,
-                filename: file.name || "attachment.pdf",
-                url,
-                sendMime: "text/plain",
-                sendUrl: textUrl(`Extracted text from attached PDF "${file.name || "attachment.pdf"}":\n\n${text}`),
-              }
-            }
-            return {
-              id: crypto.randomUUID(),
-              mime,
-              filename: file.name || "attachment",
-              url,
-            }
-          })
+          .then((url): Attachment => ({
+            id: crypto.randomUUID(),
+            mime: mimeFor(file),
+            filename: file.name || "attachment",
+            url,
+          }))
           .catch((err) => {
             setState("error", `Failed to attach ${file.name}: ${err instanceof Error ? err.message : String(err)}`)
             return undefined
@@ -746,6 +743,22 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     if (good.length > 0) setState("attachments", (items) => [...items, ...good])
   }
 
+  function addPaths(paths: string[]) {
+    if (paths.length === 0) return
+    const next = paths.map((filepath) => {
+      const name = basename(filepath) || "attachment"
+      const mime = mimeFromName(name)
+      const url = fileUrl(filepath)
+      return {
+        id: crypto.randomUUID(),
+        mime,
+        filename: name,
+        url,
+      } satisfies Attachment
+    })
+    setState("attachments", (items) => [...items, ...next])
+  }
+
   function removeAttachment(id: string) {
     setState("attachments", (items) => items.filter((item) => item.id !== id))
   }
@@ -754,7 +767,18 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     setState("attachments", [])
   }
 
-  function pickFiles() {
+  async function pickFiles() {
+    const dialog = platform.openFilePickerDialog
+    if (dialog) {
+      const result = await dialog({ multiple: true, title: "Attach files" }).catch((err) => {
+        setState("error", err instanceof Error ? err.message : String(err))
+        return null
+      })
+      if (!result) return
+      const paths = Array.isArray(result) ? result : [result]
+      addPaths(paths.filter((item): item is string => typeof item === "string"))
+      return
+    }
     picker?.click()
   }
 
@@ -883,11 +907,17 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
         return
       case "session.status": {
         const sid = event.properties.sessionID
+        const prev = state.status[sid]?.type
         setState("status", sid, event.properties.status)
         const status = event.properties.status
         if (fallbackRuntime.sessionID === sid) {
           if (status?.type === "idle") clearFallback()
           else fallbackRuntime.watcher?.touch()
+        }
+        if (status?.type === "idle" && (prev === "busy" || prev === "retry")) {
+          const session = state.sessions.find((item) => item.id === sid)
+          const label = session ? title(session) : "Agent reply complete"
+          fire("idle", "MACAW", `Done: ${label}`, sid)
         }
         return
       }
@@ -1852,6 +1882,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
             <button
               type="button"
               class="macaw-host-trigger"
+              title={currentLabel() || "Select model"}
               onClick={() => setState("hostOpen", !state.hostOpen)}
               aria-haspopup="listbox"
               aria-expanded={state.hostOpen}

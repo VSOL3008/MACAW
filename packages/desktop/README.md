@@ -37,6 +37,10 @@ This builds a Windows x64 NSIS setup `.exe` with the bundled MACAW CLI sidecar. 
 packages/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/
 ```
 
+For the widest CPU compatibility, run `bun run build:windows -- --baseline` on a machine that can download Bun's baseline compiler artifact.
+
+The first NSIS setup build also needs access to Tauri's GitHub tool downloads. If your network blocks GitHub, allow access to `github.com/tauri-apps/binary-releases`, set `TAURI_BUNDLER_TOOLS_GITHUB_MIRROR` or `TAURI_BUNDLER_TOOLS_GITHUB_MIRROR_TEMPLATE`, then rerun the command. Tauri caches the NSIS tools after the first successful download.
+
 ## Troubleshooting
 
 ### Rust compiler not found

@@ -12,6 +12,7 @@ import DESCRIPTION from "./read.txt"
 import { Instance } from "../project/instance"
 import { assertExternalDirectoryEffect } from "./external-directory"
 import { Instruction } from "../session/instruction"
+import { extractPdfText } from "../util/pdf"
 
 const DEFAULT_READ_LIMIT = 2000
 const MAX_LINE_LENGTH = 2000
@@ -151,22 +152,47 @@ export const ReadTool = Tool.defineEffect(
       const isImage = mime.startsWith("image/") && mime !== "image/svg+xml" && mime !== "image/vnd.fastbidsheet"
       const isPdf = mime === "application/pdf"
       if (isImage || isPdf) {
-        const msg = `${isImage ? "Image" : "PDF"} read successfully`
+        const buf = yield* fs.readFile(filepath)
+        const dataUrl = `data:${mime};base64,${Buffer.from(buf).toString("base64")}`
+        const attachment = { type: "file" as const, mime, url: dataUrl }
+        if (isImage) {
+          const msg = `Image read successfully`
+          return {
+            title,
+            output: msg,
+            metadata: {
+              preview: msg,
+              truncated: false,
+              loaded: loaded.map((item) => item.filepath),
+            },
+            attachments: [attachment],
+          }
+        }
+        const view = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+        const text = yield* Effect.tryPromise(() => extractPdfText(view)).pipe(
+          Effect.catch((err) =>
+            Effect.succeed(
+              `[Failed to extract PDF text: ${err instanceof Error ? err.message : String(err)}]`,
+            ),
+          ),
+        )
+        const preview = text.replace(/\s+/g, " ").trim().slice(0, 200)
+        const output = [
+          `<path>${filepath}</path>`,
+          `<type>pdf</type>`,
+          `<content>`,
+          text,
+          `</content>`,
+        ].join("\n")
         return {
           title,
-          output: msg,
+          output,
           metadata: {
-            preview: msg,
+            preview: preview || "PDF read",
             truncated: false,
             loaded: loaded.map((item) => item.filepath),
           },
-          attachments: [
-            {
-              type: "file" as const,
-              mime,
-              url: `data:${mime};base64,${Buffer.from(yield* fs.readFile(filepath)).toString("base64")}`,
-            },
-          ],
+          attachments: [attachment],
         }
       }
 

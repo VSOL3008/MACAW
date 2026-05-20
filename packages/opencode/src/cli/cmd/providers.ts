@@ -5,6 +5,7 @@ import { UI } from "../ui"
 import path from "path"
 import os from "os"
 import { Global } from "../../global"
+import { Env } from "../../env"
 
 const OLLAMA = "ollama"
 
@@ -39,7 +40,7 @@ export const ProvidersListCommand = cmd({
     }
     prompts.outro(`${auth ? 1 : 0} credential`)
 
-    const env = ["OLLAMA_BASE_URL", "OLLAMA_API_KEY"].filter((item) => process.env[item])
+    const env = ["OLLAMA_BASE_URL", "OLLAMA_HOST", "OLLAMA_API_KEY"].filter((item) => Env.get(item))
 
     if (env.length > 0) {
       UI.empty()
@@ -70,7 +71,7 @@ export const ProvidersLoginCommand = cmd({
     }
     UI.empty()
     prompts.intro("Add Ollama credential")
-    prompts.log.info("Use OLLAMA_BASE_URL or provider.ollama.options.baseURL to point MACAW at your Ollama server.")
+    prompts.log.info("Use OLLAMA_HOST, OLLAMA_BASE_URL, or provider.ollama.options.baseURL to point MACAW at your Ollama server.")
     const key = await prompts.password({
       message: "Enter your Ollama API key",
       validate: (x) => (x && x.length > 0 ? undefined : "Required"),

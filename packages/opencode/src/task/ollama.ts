@@ -1,16 +1,14 @@
-import { Env } from "../env"
 import { Log } from "../util/log"
+import * as Ollama from "../util/ollama"
 
 const log = Log.create({ service: "task.ollama" })
 
-const DEFAULT_URL = "http://localhost:11434/v1"
-
 export function baseURL(): string {
-  return Env.get("OLLAMA_BASE_URL") ?? DEFAULT_URL
+  return Ollama.envURL() ?? Ollama.DEFAULT_URL
 }
 
 function root(url: string): string {
-  return url.replace(/\/+$/, "").replace(/\/v1$/, "")
+  return Ollama.root(url)
 }
 
 export async function loaded(url: string = baseURL()): Promise<string[]> {

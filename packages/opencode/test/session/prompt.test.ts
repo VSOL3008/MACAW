@@ -1,7 +1,7 @@
 import path from "path"
 import { describe, expect, test } from "bun:test"
 import { NamedError } from "@opencode-ai/util/error"
-import { fileURLToPath } from "url"
+import { fileURLToPath, pathToFileURL } from "url"
 import { Instance } from "../../src/project/instance"
 import { ModelID, ProviderID } from "../../src/provider/schema"
 import { Session } from "../../src/session"
@@ -179,6 +179,92 @@ describe("session.prompt missing file", () => {
         expect(text[0]?.startsWith("Called the Read tool with the following input:")).toBe(true)
         expect(text[1]?.includes("Read tool failed to read")).toBe(true)
         expect(text[2]).toBe("after-file")
+
+        await Session.remove(session.id)
+      },
+    })
+  })
+
+  test("reads file URL PDF parts and keeps the attachment", async () => {
+    await using tmp = await tmpdir({
+      git: true,
+      init: async (dir) => {
+        await Bun.write(path.join(dir, "guide.pdf"), "%PDF-1.4\nnot a real pdf\n")
+      },
+    })
+
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const session = await Session.create({})
+        const file = path.join(tmp.path, "guide.pdf")
+        const msg = await SessionPrompt.prompt({
+          sessionID: session.id,
+          noReply: true,
+          parts: [
+            {
+              type: "file",
+              mime: "application/pdf",
+              url: pathToFileURL(file).href,
+              filename: "guide.pdf",
+            },
+          ],
+        })
+
+        if (msg.info.role !== "user") throw new Error("expected user message")
+
+        const text = msg.parts
+          .filter((part): part is MessageV2.TextPart => part.type === "text")
+          .map((part) => part.text)
+          .join("\n")
+        expect(text).toContain("<type>pdf</type>")
+
+        const files = msg.parts.filter(
+          (part): part is MessageV2.FilePart => part.type === "file" && part.mime === "application/pdf",
+        )
+        expect(files).toHaveLength(1)
+        expect(files[0]!.filename).toBe("guide.pdf")
+        expect(files[0]!.url).toStartWith("data:application/pdf;base64,")
+
+        await Session.remove(session.id)
+      },
+    })
+  })
+
+  test("reads absolute PDF paths mentioned in text", async () => {
+    await using tmp = await tmpdir({
+      git: true,
+      init: async (dir) => {
+        await Bun.write(path.join(dir, "guide.pdf"), "%PDF-1.4\nnot a real pdf\n")
+      },
+    })
+
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const session = await Session.create({})
+        const file = path.join(tmp.path, "guide.pdf")
+        const msg = await SessionPrompt.prompt({
+          sessionID: session.id,
+          noReply: true,
+          parts: [{ type: "text", text: `Please read "${file}" and summarize it.` }],
+        })
+
+        if (msg.info.role !== "user") throw new Error("expected user message")
+
+        const text = msg.parts
+          .filter((part): part is MessageV2.TextPart => part.type === "text")
+          .map((part) => part.text)
+          .join("\n")
+        expect(text).toContain(`Please read "${file}" and summarize it.`)
+        expect(text).toContain("<type>pdf</type>")
+
+        const files = msg.parts.filter(
+          (part): part is MessageV2.FilePart => part.type === "file" && part.mime === "application/pdf",
+        )
+        expect(files).toHaveLength(1)
+        expect(files[0]!.filename).toBe("guide.pdf")
+        expect(files[0]!.url).toStartWith("data:application/pdf;base64,")
 
         await Session.remove(session.id)
       },

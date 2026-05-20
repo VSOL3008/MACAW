@@ -9,6 +9,10 @@ export namespace Env {
 
   export function get(key: string) {
     const env = state()
+    if (process.platform === "win32") {
+      const hit = Object.keys(env).find((item) => item.toLowerCase() === key.toLowerCase())
+      return hit ? env[hit] : undefined
+    }
     return env[key]
   }
 

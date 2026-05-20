@@ -184,8 +184,6 @@ export function MemoryGraph(props: {
       setPreview(null)
       kick()
       fit()
-      const first = next.nodes.find((node) => node.id === next.root) ?? next.nodes[0]
-      if (first) await fetchInto(first.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -444,7 +442,12 @@ export function MemoryGraph(props: {
               type="button"
               class="macaw-wiki-mode"
               classList={{ active: mode() === "graph" }}
-              onClick={() => setMode("graph")}
+              onClick={() => {
+                setSelected(null)
+                setHover(null)
+                setMode("graph")
+                requestAnimationFrame(fit)
+              }}
               role="tab"
               aria-selected={mode() === "graph"}
             >

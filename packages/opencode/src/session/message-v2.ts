@@ -665,7 +665,12 @@ export namespace MessageV2 {
             })
           // text/plain and directory files are converted into text parts, ignore them
           if (part.type === "file" && part.mime !== "text/plain" && part.mime !== "application/x-directory") {
-            if (options?.stripMedia && isMedia(part.mime)) {
+            if (part.mime === "application/pdf" && !model.capabilities.input.pdf) {
+              userMessage.parts.push({
+                type: "text",
+                text: `[Attached PDF: ${part.filename ?? "file"}. The PDF file itself was not sent because this model does not support native PDF input; use the extracted text in the conversation if available.]`,
+              })
+            } else if (options?.stripMedia && isMedia(part.mime)) {
               userMessage.parts.push({
                 type: "text",
                 text: `[Attached ${part.mime}: ${part.filename ?? "file"}]`,

@@ -8,6 +8,7 @@ mod logging;
 mod markdown;
 mod os;
 mod server;
+mod tray;
 mod window_customizer;
 mod windows;
 
@@ -313,10 +314,7 @@ pub fn run() {
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // Focus existing window when another instance is launched
-            if let Some(window) = app.get_webview_window(MainWindow::LABEL) {
-                let _ = window.set_focus();
-                let _ = window.unminimize();
-            }
+            tray::open(app);
         }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_os::init())
@@ -349,6 +347,7 @@ pub fn run() {
             handle.manage(logging::init(&log_dir));
 
             builder.mount_events(&handle);
+            tray::init(&handle)?;
             tauri::async_runtime::spawn(initialize(handle));
 
             Ok(())
@@ -546,7 +545,6 @@ fn spawn_cli_sync_task(app: AppHandle) {
         }
     });
 }
-
 
 fn get_sidecar_port() -> u32 {
     option_env!("OPENCODE_PORT")
