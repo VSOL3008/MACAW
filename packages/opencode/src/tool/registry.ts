@@ -48,15 +48,8 @@ import { UITreeTool } from "./ui_tree"
 import { UIActTool } from "./ui_act"
 import { PowerShellTool } from "./powershell"
 import { OutlookTool } from "./outlook"
-import { TeamsTool } from "./teams"
 import { ExcelTool } from "./excel"
-import {
-  MemoryReadTool,
-  MemoryWriteTool,
-  MemoryAppendTool,
-  MemoryListTool,
-  MemorySearchTool,
-} from "../memory/tool"
+import { MemoryReadTool, MemoryWriteTool, MemoryAppendTool, MemoryListTool, MemorySearchTool } from "../memory/tool"
 import { SkillTool, SkillCreateTool } from "./skill"
 import { TaskCronTool } from "../task/tool"
 void _UIGroundTool
@@ -191,7 +184,6 @@ export namespace ToolRegistry {
             ui_act: Tool.init(UIActTool),
             powershell: Tool.init(PowerShellTool),
             outlook: Tool.init(OutlookTool),
-            teams: Tool.init(TeamsTool),
             excel: Tool.init(ExcelTool),
             memory_read: Tool.init(MemoryReadTool),
             memory_write: Tool.init(MemoryWriteTool),
@@ -227,7 +219,6 @@ export namespace ToolRegistry {
               tool.ui_act,
               tool.powershell,
               tool.outlook,
-              tool.teams,
               tool.excel,
               tool.memory_read,
               tool.memory_write,
@@ -281,10 +272,7 @@ export namespace ToolRegistry {
             yield* plugin.trigger("tool.definition", { toolID: tool.id }, output)
             return {
               id: tool.id,
-              description: [
-                output.description,
-                tool.id === TaskTool.id ? yield* describeTask(input.agent) : undefined,
-              ]
+              description: [output.description, tool.id === TaskTool.id ? yield* describeTask(input.agent) : undefined]
                 .filter(Boolean)
                 .join("\n"),
               parameters: output.parameters,

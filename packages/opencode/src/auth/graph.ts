@@ -81,7 +81,11 @@ async function fromAz(scopes: string[]): Promise<Cached | undefined> {
   if (code !== 0) return undefined
   const data = JSON.parse(out.trim()) as AzTokenResponse
   if (!data?.accessToken) return undefined
-  const expires = data.expires_on ? data.expires_on * 1000 : data.expiresOn ? new Date(data.expiresOn).getTime() : Date.now() + 45 * 60_000
+  const expires = data.expires_on
+    ? data.expires_on * 1000
+    : data.expiresOn
+      ? new Date(data.expiresOn).getTime()
+      : Date.now() + 45 * 60_000
   void scopes
   return { token: data.accessToken, expires, source: "az" }
 }
@@ -144,7 +148,10 @@ function expiresOf(res: { accessToken: string; expiresOn?: Date | null }): numbe
 async function fromMsalSilent(scopes: string[]): Promise<Cached | undefined> {
   const pca = await buildPca().catch(() => undefined)
   if (!pca) return undefined
-  const accounts = await pca.getTokenCache().getAllAccounts().catch(() => [])
+  const accounts = await pca
+    .getTokenCache()
+    .getAllAccounts()
+    .catch(() => [])
   if (!accounts.length) return undefined
   const res = await pca.acquireTokenSilent({ scopes, account: accounts[0]! }).catch(() => undefined)
   if (!res?.accessToken) return undefined
@@ -227,8 +234,6 @@ export function scopesFor(action: string): string[] {
     case "list_messages":
     case "search_chats":
       return ["Chat.Read"]
-    case "list_teams":
-      return ["Team.ReadBasic.All"]
     case "list_channels":
       return ["Channel.ReadBasic.All"]
     case "list_channel_messages":
