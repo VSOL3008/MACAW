@@ -17,6 +17,12 @@ function mimeToModality(mime: string): Modality | undefined {
   return undefined
 }
 
+function foundry(url: unknown) {
+  if (typeof url !== "string" || !URL.canParse(url)) return false
+  const host = new URL(url).hostname.toLowerCase()
+  return host.endsWith(".openai.azure.com") || host.endsWith(".services.ai.azure.com")
+}
+
 export namespace ProviderTransform {
   export const OUTPUT_TOKEN_MAX = Flag.OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX || 32_000
 
@@ -748,6 +754,7 @@ export namespace ProviderTransform {
     providerOptions?: Record<string, any>
   }): Record<string, any> {
     const result: Record<string, any> = {}
+    const azure = input.model.providerID === "azure-foundry" || foundry(input.providerOptions?.baseURL)
 
     // openai and providers using openai package should set store to false by default.
     if (
@@ -825,7 +832,7 @@ export namespace ProviderTransform {
     if (input.model.api.id.includes("gpt-5") && !input.model.api.id.includes("gpt-5-chat")) {
       if (!input.model.api.id.includes("gpt-5-pro")) {
         result["reasoningEffort"] = "medium"
-        result["reasoningSummary"] = "auto"
+        if (!azure) result["reasoningSummary"] = "auto"
       }
 
       // Only set textVerbosity for non-chat gpt-5.x models
@@ -834,6 +841,7 @@ export namespace ProviderTransform {
         input.model.api.id.includes("gpt-5.") &&
         !input.model.api.id.includes("codex") &&
         !input.model.api.id.includes("-chat") &&
+        !azure &&
         input.model.providerID !== "azure"
       ) {
         result["textVerbosity"] = "low"

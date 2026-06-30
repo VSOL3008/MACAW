@@ -1481,6 +1481,180 @@
     color: rgba(226, 232, 240, 0.82);
   }
 
+  .macaw-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .macaw-settings-btn {
+    padding: 0.35rem 0.55rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.45rem;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(226, 232, 240, 0.82);
+    font-size: 0.68rem;
+    line-height: 1;
+  }
+
+  .macaw-settings-btn:hover {
+    border-color: rgba(126, 155, 255, 0.45);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+  }
+
+  .macaw-settings-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(2, 6, 23, 0.48);
+  }
+
+  .macaw-settings-card {
+    box-sizing: border-box;
+    display: grid;
+    width: min(30rem, 100%);
+    gap: 0.85rem;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.95rem;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.94));
+    box-shadow: 0 20px 48px rgba(2, 6, 23, 0.45);
+  }
+
+  .macaw-settings-head,
+  .macaw-settings-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .macaw-settings-copy,
+  .macaw-settings-fields,
+  .macaw-settings-field {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .macaw-settings-title {
+    color: #f8fafc;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .macaw-settings-subtitle,
+  .macaw-settings-field span {
+    color: rgba(186, 201, 255, 0.68);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .macaw-settings-kind {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+
+  .macaw-settings-pick,
+  .macaw-settings-cancel,
+  .macaw-settings-save,
+  .macaw-settings-close {
+    border-radius: 0.5rem;
+    font: inherit;
+  }
+
+  .macaw-settings-pick {
+    padding: 0.6rem 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(226, 232, 240, 0.8);
+    text-align: left;
+  }
+
+  .macaw-settings-pick.active {
+    border-color: rgba(126, 155, 255, 0.55);
+    background: rgba(97, 124, 255, 0.16);
+    color: #fff;
+  }
+
+  .macaw-settings-field input {
+    height: 2.2rem;
+    padding: 0 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.55rem;
+    background: rgba(255, 255, 255, 0.04);
+    color: #f8fafc;
+    font: inherit;
+  }
+
+  .macaw-settings-field input::placeholder {
+    color: rgba(148, 163, 184, 0.8);
+  }
+
+  .macaw-settings-field input:focus {
+    border-color: rgba(126, 155, 255, 0.55);
+  }
+
+  .macaw-settings-error {
+    padding: 0.55rem 0.65rem;
+    border: 1px solid rgba(255, 95, 115, 0.35);
+    border-radius: 0.55rem;
+    background: rgba(127, 29, 29, 0.22);
+    color: #fecaca;
+    font-size: 0.72rem;
+    line-height: 1.4;
+  }
+
+  .macaw-settings-actions {
+    justify-content: flex-end;
+  }
+
+  .macaw-settings-cancel,
+  .macaw-settings-save {
+    padding: 0.55rem 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .macaw-settings-cancel {
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(226, 232, 240, 0.82);
+  }
+
+  .macaw-settings-save {
+    background: linear-gradient(135deg, #617cff 0%, #7b5cff 100%);
+    color: #fff;
+  }
+
+  .macaw-settings-save:disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
+
+  .macaw-settings-close {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(226, 232, 240, 0.82);
+    line-height: 1;
+  }
+
+  .macaw-settings-close:hover,
+  .macaw-settings-cancel:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+  }
+
   .macaw-dot {
     width: 0.65rem;
     height: 0.65rem;
@@ -2527,6 +2701,7 @@
     margin-top: auto;
     padding: 0.45rem 0.5rem 0.5rem;
     border-top: 1px solid #eef0f3;
+    gap: 0.45rem;
   }
 
   .macaw-conn {
@@ -2546,6 +2721,95 @@
   .macaw-dot.on {
     background: #22c55e;
     box-shadow: none;
+  }
+
+  .macaw-settings-btn {
+    border-color: #dbe1ea;
+    background: #fff;
+    color: #6b7280;
+    font-size: 0.66rem;
+  }
+
+  .macaw-settings-btn:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  .macaw-settings-overlay {
+    background: rgba(148, 163, 184, 0.22);
+    backdrop-filter: blur(4px);
+  }
+
+  .macaw-settings-card {
+    border-color: #dbe1ea;
+    background: #fff;
+    box-shadow: 0 18px 46px rgba(15, 23, 42, 0.16);
+  }
+
+  .macaw-settings-title {
+    color: #111827;
+  }
+
+  .macaw-settings-subtitle,
+  .macaw-settings-field span {
+    color: #8a94a4;
+  }
+
+  .macaw-settings-pick {
+    border-color: #dbe1ea;
+    background: #fff;
+    color: #4b5563;
+  }
+
+  .macaw-settings-pick.active {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  .macaw-settings-field input {
+    border-color: #dbe1ea;
+    background: #f8fafc;
+    color: #111827;
+  }
+
+  .macaw-settings-field input::placeholder {
+    color: #94a3b8;
+  }
+
+  .macaw-settings-field input:focus {
+    border-color: #93c5fd;
+    background: #fff;
+  }
+
+  .macaw-settings-error {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+
+  .macaw-settings-cancel {
+    border-color: #dbe1ea;
+    background: #fff;
+    color: #4b5563;
+  }
+
+  .macaw-settings-save {
+    border-color: #2563eb;
+    background: #2563eb;
+  }
+
+  .macaw-settings-close {
+    border-color: #dbe1ea;
+    background: #fff;
+    color: #6b7280;
+  }
+
+  .macaw-settings-close:hover,
+  .macaw-settings-cancel:hover {
+    background: #f8fafc;
+    color: #111827;
   }
 
   .macaw-chat {

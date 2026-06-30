@@ -6,6 +6,7 @@ import { makeRuntime } from "@/effect/run-service"
 import { Global } from "../global"
 import { Filesystem } from "../util/filesystem"
 import * as Ollama from "../util/ollama"
+import { Proxy } from "../util/proxy"
 import { ProviderTransform } from "./transform"
 import { ModelID, ProviderID } from "./schema"
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
@@ -44,14 +45,65 @@ const OLLAMA_PROVIDER = ProviderID.ollama
 const OLLAMA_NPM = "@ai-sdk/openai-compatible"
 const OLLAMA_URL = Ollama.DEFAULT_URL
 const OLLAMA_ENV = ["OLLAMA_API_KEY", "OLLAMA_BASE_URL", "OLLAMA_HOST"]
+const FOUNDRY = "azure-foundry"
 const MODEL_FALLBACK = "qwen3:latest"
 const SMALL_HINTS = ["1.5b", "3b", "mini", "small"]
 const PRIORITY = ["qwen3", "qwen2.5", "phi4", "llama3.2", "llama3.1", "mistral", "deepseek-r1"]
+const net = Object.assign(
+  (input: RequestInfo | URL, init?: RequestInit) =>
+    Proxy.fetch(typeof input === "string" || input instanceof URL ? input.toString() : input.url, init),
+  { preconnect: globalThis.fetch.preconnect.bind(globalThis.fetch) },
+) satisfies typeof fetch
 
 function pick<T>(...list: Array<T | undefined>) {
   for (const item of list) {
     if (item !== undefined) return item
   }
+}
+
+function authKey(info?: Auth.Info) {
+  if (info?.type === "api") return info.key
+}
+
+function envKey(env?: string[]) {
+  if (!env || env.length !== 1) return
+  return Env.get(env[0])
+}
+
+function clean(id: string, value: string) {
+  const url = value.trim().replace(/\/+$/, "")
+  if (id !== FOUNDRY || !url || !URL.canParse(url)) return url
+  const next = new URL(url)
+  if (!foundry(next.hostname)) return url
+  const path = next.pathname.replace(/\/+$/, "")
+  if (
+    path &&
+    path !== "/openai" &&
+    path !== "/openai/v1" &&
+    path !== "/openai/responses" &&
+    !path.endsWith("/chat/completions") &&
+    !path.endsWith("/responses")
+  )
+    return url
+  next.pathname = "/openai/v1"
+  next.search = ""
+  return next.toString().replace(/\/+$/, "")
+}
+
+function foundry(host: string) {
+  const next = host.toLowerCase()
+  return next.endsWith(".openai.azure.com") || next.endsWith(".services.ai.azure.com")
+}
+
+function scrub(id: string, url: string, body: Record<string, unknown>) {
+  if (id !== FOUNDRY && (!URL.canParse(url) || !foundry(new URL(url).hostname))) return body
+  const next = { ...body }
+  delete next.reasoningSummary
+  if (typeof next.max_tokens === "number" && next.max_completion_tokens === undefined) {
+    next.max_completion_tokens = next.max_tokens
+  }
+  delete next.max_tokens
+  return next
 }
 
 function root(url: string) {
@@ -116,17 +168,27 @@ function sortVariants(model: Provider.Model, cfg?: ModelCfg) {
   )
 }
 
-function baseModel(id: string, url: string, tag?: Tag): Provider.Model {
-  const hasVision = vision(id, tag)
-  const hasReasoning = reasoning(id)
+function baseModel(
+  id: string,
+  url: string,
+  tag?: Tag,
+  opts?: {
+    providerID?: ProviderID
+    npm?: string
+    api?: string
+  },
+): Provider.Model {
+  const api = opts?.api ?? id
+  const hasVision = vision(api, tag)
+  const hasReasoning = reasoning(api)
   const family = tag?.details?.family ?? tag?.details?.families?.[0]
   const model: Provider.Model = {
     id: ModelID.make(id),
-    providerID: OLLAMA_PROVIDER,
+    providerID: opts?.providerID ?? OLLAMA_PROVIDER,
     api: {
-      id,
+      id: api,
       url,
-      npm: OLLAMA_NPM,
+      npm: opts?.npm ?? OLLAMA_NPM,
     },
     name: id,
     family,
@@ -160,7 +222,7 @@ function baseModel(id: string, url: string, tag?: Tag): Provider.Model {
       },
     },
     limit: {
-      context: ctx(id),
+      context: ctx(api),
       output: 8_192,
     },
     status: "active",
@@ -293,9 +355,48 @@ async function discover(url: string, key?: string) {
   return enriched
 }
 
-async function build(cfg: Config.Info, saved?: string) {
+function buildConfig(cfg: Config.Info, saved: Record<string, Auth.Info>) {
+  const out: Record<ProviderID, Provider.Info> = {}
+  for (const [id, item] of Object.entries(cfg.provider ?? {})) {
+    if (id === OLLAMA_PROVIDER) continue
+    const pid = ProviderID.make(id)
+    const env = item.env ?? []
+    const url = clean(id, pick(item.options?.baseURL, item.api, "")!)
+    const key = pick(item.options?.apiKey, authKey(saved[id]), envKey(env))
+    const models = Object.fromEntries(
+      Object.entries(item.models ?? {}).map(([mid, info]) => [
+        mid,
+        mergeModel(
+          baseModel(mid, clean(id, pick(info.provider?.api, url, "")!), undefined, {
+            providerID: pid,
+            npm: info.provider?.npm ?? item.npm ?? OLLAMA_NPM,
+            api: info.id ?? mid,
+          }),
+          info,
+        ),
+      ]),
+    )
+    if (Object.keys(models).length === 0) continue
+    out[pid] = {
+      id: pid,
+      name: item.name ?? id,
+      source: "config",
+      env,
+      key,
+      options: {
+        includeUsage: true,
+        ...(item.options ?? {}),
+        ...(url ? { baseURL: url } : {}),
+      },
+      models,
+    }
+  }
+  return out
+}
+
+async function buildOllama(cfg: Config.Info, saved?: Auth.Info) {
   const providerCfg = cfg.provider?.[OLLAMA_PROVIDER]
-  const key = pick(providerCfg?.options?.apiKey, saved, Ollama.envKey())
+  const key = pick(providerCfg?.options?.apiKey, authKey(saved), Ollama.envKey())
   const baseURL = pick(providerCfg?.options?.baseURL, Ollama.envURL(), OLLAMA_URL)!
   const models: Record<string, Provider.Model> = {}
   const tags = await discover(baseURL, key)
@@ -303,11 +404,22 @@ async function build(cfg: Config.Info, saved?: string) {
     models[tag.name] = baseModel(tag.name, baseURL, tag)
   }
   for (const [id, item] of Object.entries(providerCfg?.models ?? {})) {
-    models[id] = mergeModel(models[id] ?? baseModel(item.id ?? id, item.provider?.api ?? baseURL), item)
+    models[id] = mergeModel(
+      models[id] ??
+        baseModel(id, pick(item.provider?.api, baseURL)!, undefined, {
+          api: item.id ?? id,
+        }),
+      item,
+    )
   }
   if (Object.keys(models).length === 0) {
     const fallback = providerCfg?.models?.[MODEL_FALLBACK]
-    models[MODEL_FALLBACK] = mergeModel(baseModel(fallback?.id ?? MODEL_FALLBACK, fallback?.provider?.api ?? baseURL), fallback)
+    models[MODEL_FALLBACK] = mergeModel(
+      baseModel(MODEL_FALLBACK, pick(fallback?.provider?.api, baseURL)!, undefined, {
+        api: fallback?.id ?? MODEL_FALLBACK,
+      }),
+      fallback,
+    )
   }
   return {
     [OLLAMA_PROVIDER]: {
@@ -324,6 +436,19 @@ async function build(cfg: Config.Info, saved?: string) {
       models,
     },
   } satisfies Record<ProviderID, Provider.Info>
+}
+
+async function build(cfg: Config.Info, saved: Record<string, Auth.Info>) {
+  return {
+    ...(await buildOllama(cfg, saved[OLLAMA_PROVIDER])),
+    ...buildConfig(cfg, saved),
+  } satisfies Record<ProviderID, Provider.Info>
+}
+
+function headers(opts: Record<string, unknown>) {
+  const head = opts.headers
+  if (!head || typeof head !== "object" || Array.isArray(head)) return {}
+  return Object.fromEntries(Object.entries(head).filter((item): item is [string, string] => typeof item[1] === "string"))
 }
 
 function modelKey(model: Provider.Model) {
@@ -441,10 +566,8 @@ export namespace Provider {
       const state = yield* InstanceState.make<State>(() =>
         Effect.gen(function* () {
           const cfg = yield* config.get()
-          const saved = yield* auth.get(OLLAMA_PROVIDER).pipe(Effect.orDie)
-          const providers = yield* Effect.promise(() =>
-            build(cfg, saved?.type === "api" ? saved.key : undefined),
-          )
+          const saved = yield* auth.all().pipe(Effect.orDie)
+          const providers = yield* Effect.promise(() => build(cfg, saved))
           return {
             providers,
             models: new Map<string, LanguageModelV3>(),
@@ -476,29 +599,33 @@ export namespace Provider {
         if (existing) return existing
         return yield* Effect.promise(async () => {
           const provider = s.providers[model.providerID]
-          const url = String(provider.options.baseURL ?? OLLAMA_URL)
+          const url = model.api.url || String(provider.options.baseURL ?? OLLAMA_URL)
+          const head = {
+            ...headers(provider.options),
+            ...model.headers,
+          }
           const cacheKey = JSON.stringify({
+            npm: model.api.npm,
             url,
             key: provider.key,
-            headers: model.headers,
+            headers: head,
           })
           let sdk = s.sdk.get(cacheKey)
           if (!sdk) {
             sdk = createOpenAICompatible({
               name: model.providerID,
-              baseURL: url,
               ...(provider.options ?? {}),
+              baseURL: url,
               apiKey: provider.key,
-              headers: {
-                ...provider.options.headers,
-                ...model.headers,
-              },
+              headers: head,
+              fetch: net,
+              transformRequestBody: (body) => scrub(model.providerID, url, body),
             }) as CompatibleSDK
             s.sdk.set(cacheKey, sdk)
           }
           try {
             const language = sdk.languageModel?.(model.api.id) ?? sdk.chatModel?.(model.api.id)
-            if (!language) throw new Error("Ollama client did not expose a chat model")
+            if (!language) throw new Error("Provider client did not expose a chat model")
             s.models.set(modelKey(model), language)
             return language
           } catch (err) {

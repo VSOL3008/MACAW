@@ -1,4 +1,5 @@
 import type {
+  Config,
   Event,
   Message,
   Part,
@@ -48,6 +49,18 @@ type Attachment = {
   url: string
 }
 
+type Settings = {
+  kind: "ollama" | "azure"
+  url: string
+  key: string
+  model: string
+  name: string
+}
+
+const AZURE = "azure-foundry"
+const AZURE_NAME = "Azure AI Foundry"
+const AZURE_MODEL = "gpt-4o"
+
 function read(key: string) {
   try {
     return localStorage.getItem(key) ?? undefined
@@ -83,6 +96,45 @@ function split(value: string): Pair {
 
 function pack(input: Pair) {
   return `${input.provider}/${input.model}`
+}
+
+function azure(value: string) {
+  const url = value.trim().replace(/\/+$/, "")
+  if (!url || !URL.canParse(url)) return url
+  const next = new URL(url)
+  const host = next.hostname.toLowerCase()
+  if (!host.endsWith(".openai.azure.com") && !host.endsWith(".services.ai.azure.com")) return url
+  const path = next.pathname.replace(/\/+$/, "")
+  if (
+    path &&
+    path !== "/openai" &&
+    path !== "/openai/v1" &&
+    path !== "/openai/responses" &&
+    !path.endsWith("/chat/completions") &&
+    !path.endsWith("/responses")
+  )
+    return url
+  next.pathname = "/openai/v1"
+  next.search = ""
+  return next.toString().replace(/\/+$/, "")
+}
+
+function fault(err?: { name?: string; data?: { message?: string } }) {
+  return err?.data?.message || err?.name || "An error occurred."
+}
+
+function seed(cfg?: Config, host = ""): Settings {
+  const item = cfg?.provider?.[AZURE]
+  const pick = split(host)
+  const url = typeof item?.options?.baseURL === "string" ? item.options.baseURL : read("macaw.azure.url") ?? ""
+  return {
+    kind: pick.provider === AZURE ? "azure" : "ollama",
+    url: azure(url),
+    key: typeof item?.options?.apiKey === "string" ? item.options.apiKey : "",
+    model:
+      (pick.provider === AZURE ? pick.model : Object.keys(item?.models ?? {})[0]) || read("macaw.azure.model") || AZURE_MODEL,
+    name: item?.name ?? read("macaw.azure.name") ?? AZURE_NAME,
+  }
 }
 
 function sessionSort(left: Session, right: Session) {
@@ -292,6 +344,10 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     },
     toasts: [] as Toast[],
     hostOpen: false,
+    settingsOpen: false,
+    settingsBusy: false,
+    settingsError: "",
+    settings: seed(undefined, read("macaw.host") ?? ""),
     questions: {} as Record<string, QuestionRequest[]>,
     permissions: {} as Record<string, PermissionRequest[]>,
     draft: {} as Record<
@@ -362,7 +418,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
   })
   const requests = createMemo(() => state.messages.filter((row) => row.info.role === "assistant").length)
   const running = createMemo(() => new Set(steps().filter((step) => step.state.status === "running").map((step) => step.tool)))
-  const ollama = createMemo(() => {
+  const url = createMemo(() => {
     const pick = split(state.host)
     return state.providers.find((provider) => provider.id === pick.provider)?.options.baseURL?.toString() ?? ""
   })
@@ -381,6 +437,16 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
       model: pick.model,
     })
     setState("tools", res.data ?? [])
+  }
+
+  function apply(all: Provider[], dir = state.dir, want?: string) {
+    const list = shape(all)
+    const host = want && list.some((item) => pack(item) === want) ? want : pickHost(all)
+    setState({ providers: all, host })
+    if (host) write("macaw.host", host)
+    saveCachedProviders(props.server, all)
+    void loadTools(host, dir)
+    return host
   }
 
   function toggleFavorite(id: string) {
@@ -526,11 +592,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
       .then((res) => {
         if (!alive()) return
         const all = res.data?.all ?? []
-        const host = pickHost(all)
-        setState({ providers: all, host })
-        if (host) write("macaw.host", host)
-        saveCachedProviders(props.server, all)
-        void loadTools(host, dir)
+        apply(all, dir)
       })
       .catch((err) => {
         if (alive()) setState("error", err instanceof Error ? err.message : String(err))
@@ -878,6 +940,130 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     if (fallbackRuntime.sessionID === sessionID) fallbackRuntime.watcher?.touch()
   }
 
+  function closeSettings() {
+    setState({
+      settingsOpen: false,
+      settingsBusy: false,
+      settingsError: "",
+    })
+  }
+
+  async function openSettings() {
+    setState({
+      settingsOpen: true,
+      settingsBusy: false,
+      settingsError: "",
+      settings: seed(undefined, state.host),
+    })
+    const res = await root()
+      .global.config.get()
+      .catch((err) => {
+        setState("settingsError", err instanceof Error ? err.message : String(err))
+        return undefined
+      })
+    if (res?.data) setState("settings", seed(res.data, state.host))
+  }
+
+  async function saveSettings() {
+    const form = state.settings
+    const nextURL = form.kind === "azure" ? azure(form.url) : form.url.trim()
+    const nextModel = form.model.trim()
+    const nextName = form.name.trim() || AZURE_NAME
+    if (form.kind === "azure" && !nextURL) {
+      setState("settingsError", "Proxy URL is required.")
+      return
+    }
+    if (form.kind === "azure" && !nextModel) {
+      setState("settingsError", "Model is required.")
+      return
+    }
+    setState({
+      settingsBusy: true,
+      settingsError: "",
+    })
+
+    if (form.kind === "azure") {
+      const res = await root()
+        .global.config.get()
+        .catch((err) => {
+          setState("settingsError", err instanceof Error ? err.message : String(err))
+          return undefined
+        })
+      const cfg = res?.data
+      if (!cfg) {
+        setState("settingsBusy", false)
+        return
+      }
+      const prev = cfg.provider?.[AZURE]
+      const nextKey = form.key.trim() || (typeof prev?.options?.apiKey === "string" ? prev.options.apiKey : "")
+      const next: Config = {
+        provider: {
+          [AZURE]: {
+            name: nextName,
+            npm: "@ai-sdk/openai-compatible",
+            env: prev?.env ?? [],
+            options: {
+              ...(prev?.options ?? {}),
+              baseURL: nextURL,
+              ...(nextKey ? { apiKey: nextKey } : {}),
+            },
+            models: {
+              ...(prev?.models ?? {}),
+              [nextModel]: {
+                ...(prev?.models?.[nextModel] ?? {}),
+                name: prev?.models?.[nextModel]?.name ?? nextModel,
+                tool_call: prev?.models?.[nextModel]?.tool_call ?? true,
+                limit: prev?.models?.[nextModel]?.limit ?? {
+                  context: 128000,
+                  output: 8192,
+                },
+              },
+            },
+          },
+        },
+      }
+      const saved = await root()
+        .global.config.update({ config: next })
+        .catch((err) => {
+          setState("settingsError", err instanceof Error ? err.message : String(err))
+          return undefined
+        })
+      if (!saved) {
+        setState("settingsBusy", false)
+        return
+      }
+      await root()
+        .global.dispose()
+        .catch(() => undefined)
+      write("macaw.azure.url", nextURL)
+      write("macaw.azure.model", nextModel)
+      write("macaw.azure.name", nextName)
+    }
+
+    const res = await client(state.dir)
+      .provider.list()
+      .catch((err) => {
+        setState("settingsError", err instanceof Error ? err.message : String(err))
+        return undefined
+      })
+    if (!res) {
+      setState("settingsBusy", false)
+      return
+    }
+    const all = res.data?.all ?? []
+    const hit = shape(all).find((item) => item.provider === "ollama")
+    apply(
+      all,
+      state.dir,
+      form.kind === "azure"
+        ? pack({ provider: AZURE, model: nextModel })
+        : hit
+          ? pack(hit)
+          : undefined,
+    )
+    closeSettings()
+  }
+
   const tasks = new Set<(event: Event) => void>()
   const listenTasks = (handler: (event: Event) => void) => {
     tasks.add(handler)
@@ -910,6 +1096,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
         const prev = state.status[sid]?.type
         setState("status", sid, event.properties.status)
         const status = event.properties.status
+        if (sid === state.current && status?.type === "busy") setState("error", "")
         if (fallbackRuntime.sessionID === sid) {
           if (status?.type === "idle") clearFallback()
           else fallbackRuntime.watcher?.touch()
@@ -923,7 +1110,9 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
       }
       case "message.updated": {
         const sid = event.properties.info.sessionID
+        const err = event.properties.info.role === "assistant" ? event.properties.info.error : undefined
         if (sid === state.current) {
+          setState("error", fault(err))
           setState("messages", (list) => upsertRow(list, event.properties.info))
         } else if (state.childMessages[sid]) {
           setState("childMessages", sid, (list) => upsertRow(list, event.properties.info))
@@ -944,10 +1133,18 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
       case "message.part.updated": {
         const sid = event.properties.part.sessionID
         if (sid === state.current) {
+          setState("error", "")
           setState("messages", (list) => upsertPart(list, event.properties.part))
         } else if (state.childMessages[sid]) {
           setState("childMessages", sid, (list) => upsertPart(list, event.properties.part))
         }
+        touchFallback(sid)
+        return
+      }
+      case "session.error": {
+        const sid = event.properties.sessionID
+        if (sid && sid !== state.current && !state.childMessages[sid]) return
+        setState("error", fault(event.properties.error))
         touchFallback(sid)
         return
       }
@@ -1522,6 +1719,105 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
 
   return (
     <div class="macaw-shell" style={{ "--macaw-left": `${state.left}px`, "--macaw-right": `${state.right}px` }}>
+      <Show when={state.settingsOpen}>
+        <div
+          class="macaw-settings-overlay"
+          onClick={(event) => {
+            if (event.currentTarget === event.target) closeSettings()
+          }}
+        >
+          <form
+            class="macaw-settings-card"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void saveSettings()
+            }}
+          >
+            <div class="macaw-settings-head">
+              <div class="macaw-settings-copy">
+                <div class="macaw-settings-title">Settings</div>
+                <div class="macaw-settings-subtitle">Provider</div>
+              </div>
+              <button type="button" class="macaw-settings-close" aria-label="Close settings" onClick={closeSettings}>
+                x
+              </button>
+            </div>
+            <div class="macaw-settings-kind">
+              <button
+                type="button"
+                class="macaw-settings-pick"
+                classList={{ active: state.settings.kind === "ollama" }}
+                onClick={() => {
+                  setState("settings", "kind", "ollama")
+                  setState("settingsError", "")
+                }}
+              >
+                Local Ollama
+              </button>
+              <button
+                type="button"
+                class="macaw-settings-pick"
+                classList={{ active: state.settings.kind === "azure" }}
+                onClick={() => {
+                  setState("settings", "kind", "azure")
+                  setState("settingsError", "")
+                }}
+              >
+                Azure AI Foundry
+              </button>
+            </div>
+            <Show when={state.settings.kind === "azure"}>
+              <div class="macaw-settings-fields">
+                <label class="macaw-settings-field">
+                  <span>Proxy URL</span>
+                  <input
+                    value={state.settings.url}
+                    placeholder="http://127.0.0.1:PORT/v1"
+                    onInput={(event) => setState("settings", "url", event.currentTarget.value)}
+                  />
+                </label>
+                <label class="macaw-settings-field">
+                  <span>API Key</span>
+                  <input
+                    type="password"
+                    value={state.settings.key}
+                    placeholder="Optional"
+                    onInput={(event) => setState("settings", "key", event.currentTarget.value)}
+                  />
+                </label>
+                <label class="macaw-settings-field">
+                  <span>Model</span>
+                  <input
+                    value={state.settings.model}
+                    placeholder={AZURE_MODEL}
+                    onInput={(event) => setState("settings", "model", event.currentTarget.value)}
+                  />
+                </label>
+                <label class="macaw-settings-field">
+                  <span>Name</span>
+                  <input
+                    value={state.settings.name}
+                    placeholder={AZURE_NAME}
+                    onInput={(event) => setState("settings", "name", event.currentTarget.value)}
+                  />
+                </label>
+              </div>
+            </Show>
+            <Show when={state.settingsError}>
+              <div class="macaw-settings-error">{state.settingsError}</div>
+            </Show>
+            <div class="macaw-settings-actions">
+              <button type="button" class="macaw-settings-cancel" onClick={closeSettings}>
+                Cancel
+              </button>
+              <button type="submit" class="macaw-settings-save" disabled={state.settingsBusy}>
+                {state.settingsBusy ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </Show>
+
       <aside class="macaw-side">
         <div class="macaw-brand">
           <div class="macaw-mark">MACAW</div>
@@ -1612,6 +1908,9 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
             <span class={`macaw-dot${state.connected ? " on" : ""}`} />
             <span>{state.connected ? "Connected" : "Disconnected"}</span>
           </div>
+          <button type="button" class="macaw-settings-btn" onClick={() => void openSettings()}>
+            Settings
+          </button>
         </div>
       </aside>
 
@@ -1976,7 +2275,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
               </div>
             </Show>
           </div>
-          <div class="macaw-url">{ollama()}</div>
+          <div class="macaw-url">{url()}</div>
           <label
             class="macaw-fallback-toggle"
             title="If on, switch to a favourite model after 90s of silence (useful for cloud APIs, harmful for slow-loading Ollama models)."

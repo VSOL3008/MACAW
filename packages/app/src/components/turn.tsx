@@ -9,8 +9,15 @@ export type Row = {
 
 type ReasoningPart = Extract<Part, { type: "reasoning" }>
 
+function fault(row: Row) {
+  if (row.info.role !== "assistant" || !row.info.error) return ""
+  const data = row.info.error.data
+  if (typeof data === "object" && data && "message" in data && typeof data.message === "string") return data.message
+  return row.info.error.name
+}
+
 export function rowText(row: Row): string {
-  return row.parts
+  const text = row.parts
     .filter((part): part is Extract<Part, { type: "text" }> => {
       if (part.type !== "text") return false
       if (row.info.role === "user" && part.synthetic) return false
@@ -18,6 +25,8 @@ export function rowText(row: Row): string {
     })
     .map((part) => part.text)
     .join("\n\n")
+  if (text) return text
+  return fault(row)
 }
 
 export function rowReasoningParts(row: Row): ReasoningPart[] {
