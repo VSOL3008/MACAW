@@ -523,6 +523,33 @@ export namespace Config {
   })
   export type Skills = z.infer<typeof Skills>
 
+  export const CorporateSearch = z
+    .object({
+      sources: z
+        .array(
+          z.object({
+            id: z.string().min(1),
+            label: z.string().optional(),
+            root: z.string().min(1),
+            tree: z.string().optional(),
+          }),
+        )
+        .optional()
+        .describe("Read-only shared-drive roots available to Corporate Search mode."),
+      limits: z
+        .object({
+          results: z.number().int().positive().optional(),
+          entries: z.number().int().positive().optional(),
+          bytes: z.number().int().positive().optional(),
+          text: z.number().int().positive().optional(),
+        })
+        .optional()
+        .describe("Caps for corporate search result batches, directory entries, read bytes, and extracted text."),
+    })
+    .optional()
+    .meta({ ref: "CorporateSearchConfig" })
+  export type CorporateSearch = z.infer<typeof CorporateSearch>
+
   export const Agent = z
     .object({
       model: ModelId.optional(),
@@ -917,6 +944,7 @@ export namespace Config {
         .record(z.string(), Command)
         .optional()
         .describe("Command configuration, see https://opencode.ai/docs/commands"),
+      corporate_search: CorporateSearch,
       skills: Skills.optional().describe("Additional skill folder paths"),
       watcher: z
         .object({

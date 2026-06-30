@@ -46,12 +46,21 @@ import type {
   GlobalConfigGetResponses,
   GlobalConfigUpdateErrors,
   GlobalConfigUpdateResponses,
+  GlobalCorporateImportErrors,
+  GlobalCorporateImportResponses,
+  GlobalCorporateListResponses,
+  GlobalCorporateNoteResponses,
+  GlobalCorporateReadResponses,
+  GlobalCorporateSearchResponses,
+  GlobalCorporateStatusResponses,
   GlobalDisposeResponses,
   GlobalEventResponses,
   GlobalHealthResponses,
   GlobalMemoryGraphResponses,
   GlobalMemoryPageErrors,
   GlobalMemoryPageResponses,
+  GlobalMemoryPagesResponses,
+  GlobalMemoryStatusResponses,
   GlobalSyncEventSubscribeResponses,
   GlobalTaskCancelResponses,
   GlobalTaskCreateResponses,
@@ -304,14 +313,76 @@ export class Config extends HeyApiClient {
 
 export class Memory extends HeyApiClient {
   /**
+   * Memory wiki index status
+   *
+   * Return current memory wiki index counts and background indexing state.
+   */
+  public status<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<GlobalMemoryStatusResponses, unknown, ThrowOnError>({
+      url: "/global/memory/status",
+      ...options,
+    })
+  }
+
+  /**
+   * Memory wiki pages
+   *
+   * Return a bounded, cursor-paged list of memory wiki pages from the derived index.
+   */
+  public pages<ThrowOnError extends boolean = false>(
+    parameters?: {
+      query?: string
+      limit?: number
+      cursor?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "query" },
+            { in: "query", key: "limit" },
+            { in: "query", key: "cursor" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<GlobalMemoryPagesResponses, unknown, ThrowOnError>({
+      url: "/global/memory/pages",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
    * Memory knowledge graph
    *
-   * Scan the user memory wiki and return nodes (pages) and edges (markdown links between pages).
+   * Return a bounded graph view plus summary stats from the memory wiki index.
    */
-  public graph<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+  public graph<ThrowOnError extends boolean = false>(
+    parameters?: {
+      query?: string
+      limit?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "query" },
+            { in: "query", key: "limit" },
+          ],
+        },
+      ],
+    )
     return (options?.client ?? this.client).get<GlobalMemoryGraphResponses, unknown, ThrowOnError>({
       url: "/global/memory/graph",
       ...options,
+      ...params,
     })
   }
 
@@ -331,6 +402,216 @@ export class Memory extends HeyApiClient {
       url: "/global/memory/page",
       ...options,
       ...params,
+    })
+  }
+}
+
+export class Corporate extends HeyApiClient {
+  /**
+   * Corporate search index status
+   *
+   * Return corporate mirror source counts, index location, and limits.
+   */
+  public status<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<GlobalCorporateStatusResponses, unknown, ThrowOnError>({
+      url: "/global/corporate/status",
+      ...options,
+    })
+  }
+
+  /**
+   * Corporate mirror search
+   *
+   * Search the metadata-only shared-drive mirror without scanning the real drive.
+   */
+  public search<ThrowOnError extends boolean = false>(
+    parameters: {
+      query: string
+      source?: string
+      limit?: number
+      cursor?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "query" },
+            { in: "query", key: "source" },
+            { in: "query", key: "limit" },
+            { in: "query", key: "cursor" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<GlobalCorporateSearchResponses, unknown, ThrowOnError>({
+      url: "/global/corporate/search",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Import corporate tree
+   *
+   * Import tree command output or a memory page into the corporate sidecar mirror.
+   */
+  public import<ThrowOnError extends boolean = false>(
+    parameters?: {
+      source?: string
+      root?: string
+      label?: string
+      tree?: string
+      content?: string
+      memory_path?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "source" },
+            { in: "body", key: "root" },
+            { in: "body", key: "label" },
+            { in: "body", key: "tree" },
+            { in: "body", key: "content" },
+            { in: "body", key: "memory_path" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      GlobalCorporateImportResponses,
+      GlobalCorporateImportErrors,
+      ThrowOnError
+    >({
+      url: "/global/corporate/import",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Refresh one corporate directory
+   *
+   * Read-only list for one allowlisted source directory and update only that directory in the mirror.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      source?: string
+      path?: string
+      limit?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "source" },
+            { in: "body", key: "path" },
+            { in: "body", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<GlobalCorporateListResponses, unknown, ThrowOnError>({
+      url: "/global/corporate/list",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Read one corporate file
+   *
+   * Read-only capped extraction for one file under an allowlisted corporate source.
+   */
+  public read<ThrowOnError extends boolean = false>(
+    parameters?: {
+      source?: string
+      path?: string
+      offset?: number
+      limit?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "source" },
+            { in: "body", key: "path" },
+            { in: "body", key: "offset" },
+            { in: "body", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<GlobalCorporateReadResponses, unknown, ThrowOnError>({
+      url: "/global/corporate/read",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Annotate corporate mirror entry
+   *
+   * Update local sidecar notes or aliases for one mirror entry only.
+   */
+  public note<ThrowOnError extends boolean = false>(
+    parameters?: {
+      source?: string
+      path?: string
+      notes?: string
+      aliases?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "source" },
+            { in: "body", key: "path" },
+            { in: "body", key: "notes" },
+            { in: "body", key: "aliases" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<GlobalCorporateNoteResponses, unknown, ThrowOnError>({
+      url: "/global/corporate/note",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 }
@@ -691,6 +972,11 @@ export class Global extends HeyApiClient {
   private _memory?: Memory
   get memory(): Memory {
     return (this._memory ??= new Memory({ client: this.client }))
+  }
+
+  private _corporate?: Corporate
+  get corporate(): Corporate {
+    return (this._corporate ??= new Corporate({ client: this.client }))
   }
 
   private _task?: Task

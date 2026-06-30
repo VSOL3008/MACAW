@@ -266,7 +266,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     error: "",
     prompt: "",
     tab: "steps" as "steps" | "tools",
-    mode: (read("macaw.mode") ?? "build") as "build" | "file_shell" | "zero_trust",
+    mode: (read("macaw.mode") ?? "build") as "build" | "file_shell" | "zero_trust" | "corporate_search",
     current: "",
     host: "",
     sessions: [] as Session[],
@@ -1818,10 +1818,17 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
               </For>
             </div>
           </Show>
-          <select class="macaw-mode" value={state.mode} onChange={(event) => setState("mode", event.currentTarget.value as "build" | "file_shell" | "zero_trust")}>
+          <select
+            class="macaw-mode"
+            value={state.mode}
+            onChange={(event) =>
+              setState("mode", event.currentTarget.value as "build" | "file_shell" | "zero_trust" | "corporate_search")
+            }
+          >
             <option value="build">Normal</option>
             <option value="file_shell">File &amp; Shell</option>
             <option value="zero_trust">Zero Trust</option>
+            <option value="corporate_search">Corporate Search</option>
           </select>
           <button type="button" class="macaw-attach" onClick={pickFiles} aria-label="Attach files" title="Attach files">
             +

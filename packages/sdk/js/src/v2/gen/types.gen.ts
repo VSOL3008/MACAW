@@ -1250,6 +1250,27 @@ export type ServerConfig = {
   cors?: Array<string>
 }
 
+export type CorporateSearchConfig = {
+  /**
+   * Read-only shared-drive roots available to Corporate Search mode.
+   */
+  sources?: Array<{
+    id: string
+    label?: string
+    root: string
+    tree?: string
+  }>
+  /**
+   * Caps for corporate search result batches, directory entries, read bytes, and extracted text.
+   */
+  limits?: {
+    results?: number
+    entries?: number
+    bytes?: number
+    text?: number
+  }
+}
+
 export type PermissionActionConfig = "ask" | "allow" | "deny"
 
 export type PermissionObjectConfig = {
@@ -1540,6 +1561,7 @@ export type Config = {
       subtask?: boolean
     }
   }
+  corporate_search?: CorporateSearchConfig
   /**
    * Additional skill folder paths
    */
@@ -1736,6 +1758,46 @@ export type BadRequestError = {
   success: false
 }
 
+export type MemoryStatus = {
+  root: string
+  indexing: boolean
+  indexed: number
+  total: number
+  pages: number
+  links: number
+  cache: boolean
+  cache_age: number
+  last_error?: string
+}
+
+export type MemoryPageItem = {
+  id: string
+  label: string
+  category: string
+  size: number
+  indegree: number
+  outdegree: number
+  modified: number
+}
+
+export type MemoryPages = {
+  root: string
+  items: Array<MemoryPageItem>
+  next_cursor?: string
+  stats: {
+    root: string
+    indexing: boolean
+    indexed: number
+    total: number
+    pages: number
+    links: number
+    cache: boolean
+    cache_age: number
+    last_error?: string
+    total_matches: number
+  }
+}
+
 export type MemoryGraphNode = {
   id: string
   label: string
@@ -1750,15 +1812,124 @@ export type MemoryGraphEdge = {
   target: string
 }
 
+export type MemoryGraphStats = {
+  total_nodes: number
+  total_edges: number
+  visible_nodes: number
+  visible_edges: number
+  query_nodes: number
+  sampled: boolean
+  indexing: boolean
+  indexed_nodes: number
+  index_total: number
+  cache_age: number
+  last_error?: string
+}
+
 export type MemoryGraph = {
   root: string
   nodes: Array<MemoryGraphNode>
   edges: Array<MemoryGraphEdge>
+  stats: MemoryGraphStats
 }
 
 export type MemoryPage = {
   path: string
   content: string
+}
+
+export type CorporateSourceStatus = {
+  id: string
+  label: string
+  root: string
+  tree?: string
+  entries: number
+  stale: number
+  imported?: number
+}
+
+export type CorporateLimits = {
+  results: number
+  entries: number
+  bytes: number
+  text: number
+}
+
+export type CorporateStatus = {
+  root: string
+  sources: Array<CorporateSourceStatus>
+  totals: {
+    sources: number
+    entries: number
+    stale: number
+  }
+  limits: CorporateLimits
+}
+
+export type CorporateSearch = {
+  items: Array<{
+    source: string
+    path: string
+    name: string
+    ext: string
+    type: "file" | "directory"
+    parent: string
+    depth: number
+    size?: number
+    modified?: number
+    discovered: number
+    stale: boolean
+    notes: string
+    aliases: string
+    score: number
+  }>
+  next_cursor?: string
+  stats: {
+    total_matches: number
+    limit: number
+  }
+}
+
+export type CorporateImport = {
+  source: string
+  imported: number
+  stale: number
+}
+
+export type CorporateError = {
+  error: string
+}
+
+export type CorporateEntry = {
+  source: string
+  path: string
+  name: string
+  ext: string
+  type: "file" | "directory"
+  parent: string
+  depth: number
+  size?: number
+  modified?: number
+  discovered: number
+  stale: boolean
+  notes: string
+  aliases: string
+}
+
+export type CorporateList = {
+  source: string
+  path: string
+  items: Array<CorporateEntry>
+  truncated: boolean
+}
+
+export type CorporateRead = {
+  source: string
+  path: string
+  type: string
+  text: string
+  truncated: boolean
+  bytes: number
 }
 
 export type TaskDetail = {
@@ -2363,10 +2534,64 @@ export type GlobalUpgradeResponses = {
 
 export type GlobalUpgradeResponse = GlobalUpgradeResponses[keyof GlobalUpgradeResponses]
 
-export type GlobalMemoryGraphData = {
+export type GlobalMemoryStatusData = {
   body?: never
   path?: never
   query?: never
+  url: "/global/memory/status"
+}
+
+export type GlobalMemoryStatusResponses = {
+  /**
+   * Index status
+   */
+  200: MemoryStatus
+}
+
+export type GlobalMemoryStatusResponse = GlobalMemoryStatusResponses[keyof GlobalMemoryStatusResponses]
+
+export type GlobalMemoryPagesData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Optional search query for page title, path, and indexed text.
+     */
+    query?: string
+    /**
+     * Max pages to include.
+     */
+    limit?: number
+    /**
+     * Cursor from the previous response.
+     */
+    cursor?: string
+  }
+  url: "/global/memory/pages"
+}
+
+export type GlobalMemoryPagesResponses = {
+  /**
+   * Page list
+   */
+  200: MemoryPages
+}
+
+export type GlobalMemoryPagesResponse = GlobalMemoryPagesResponses[keyof GlobalMemoryPagesResponses]
+
+export type GlobalMemoryGraphData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Optional search query used to focus the graph.
+     */
+    query?: string
+    /**
+     * Max nodes to include in the returned graph view.
+     */
+    limit?: number
+  }
   url: "/global/memory/graph"
 }
 
@@ -2410,6 +2635,137 @@ export type GlobalMemoryPageResponses = {
 }
 
 export type GlobalMemoryPageResponse = GlobalMemoryPageResponses[keyof GlobalMemoryPageResponses]
+
+export type GlobalCorporateStatusData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/global/corporate/status"
+}
+
+export type GlobalCorporateStatusResponses = {
+  /**
+   * Corporate status
+   */
+  200: CorporateStatus
+}
+
+export type GlobalCorporateStatusResponse = GlobalCorporateStatusResponses[keyof GlobalCorporateStatusResponses]
+
+export type GlobalCorporateSearchData = {
+  body?: never
+  path?: never
+  query: {
+    query: string
+    source?: string
+    limit?: number
+    cursor?: string
+  }
+  url: "/global/corporate/search"
+}
+
+export type GlobalCorporateSearchResponses = {
+  /**
+   * Search results
+   */
+  200: CorporateSearch
+}
+
+export type GlobalCorporateSearchResponse = GlobalCorporateSearchResponses[keyof GlobalCorporateSearchResponses]
+
+export type GlobalCorporateImportData = {
+  body?: {
+    source: string
+    root?: string
+    label?: string
+    tree?: string
+    content?: string
+    memory_path?: string
+  }
+  path?: never
+  query?: never
+  url: "/global/corporate/import"
+}
+
+export type GlobalCorporateImportErrors = {
+  /**
+   * Bad request
+   */
+  400: CorporateError
+}
+
+export type GlobalCorporateImportError = GlobalCorporateImportErrors[keyof GlobalCorporateImportErrors]
+
+export type GlobalCorporateImportResponses = {
+  /**
+   * Import result
+   */
+  200: CorporateImport
+}
+
+export type GlobalCorporateImportResponse = GlobalCorporateImportResponses[keyof GlobalCorporateImportResponses]
+
+export type GlobalCorporateListData = {
+  body?: {
+    source: string
+    path?: string
+    limit?: number
+  }
+  path?: never
+  query?: never
+  url: "/global/corporate/list"
+}
+
+export type GlobalCorporateListResponses = {
+  /**
+   * Directory entries
+   */
+  200: CorporateList
+}
+
+export type GlobalCorporateListResponse = GlobalCorporateListResponses[keyof GlobalCorporateListResponses]
+
+export type GlobalCorporateReadData = {
+  body?: {
+    source: string
+    path: string
+    offset?: number
+    limit?: number
+  }
+  path?: never
+  query?: never
+  url: "/global/corporate/read"
+}
+
+export type GlobalCorporateReadResponses = {
+  /**
+   * Extracted content
+   */
+  200: CorporateRead
+}
+
+export type GlobalCorporateReadResponse = GlobalCorporateReadResponses[keyof GlobalCorporateReadResponses]
+
+export type GlobalCorporateNoteData = {
+  body?: {
+    source: string
+    path: string
+    notes?: string
+    aliases?: string
+  }
+  path?: never
+  query?: never
+  url: "/global/corporate/note"
+}
+
+export type GlobalCorporateNoteResponses = {
+  /**
+   * Updated entry
+   */
+  200: CorporateEntry
+}
+
+export type GlobalCorporateNoteResponse = GlobalCorporateNoteResponses[keyof GlobalCorporateNoteResponses]
 
 export type GlobalTaskListData = {
   body?: never

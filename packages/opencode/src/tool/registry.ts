@@ -50,6 +50,14 @@ import { PowerShellTool } from "./powershell"
 import { OutlookTool } from "./outlook"
 import { ExcelTool } from "./excel"
 import { MemoryReadTool, MemoryWriteTool, MemoryAppendTool, MemoryListTool, MemorySearchTool } from "../memory/tool"
+import {
+  CorporateStatusTool,
+  CorporateSearchTool,
+  CorporateListTool,
+  CorporateReadTool,
+  CorporateNoteTool,
+  CorporateImportTreeTool,
+} from "../corporate/tool"
 import { SkillTool, SkillCreateTool } from "./skill"
 import { TaskCronTool } from "../task/tool"
 void _UIGroundTool
@@ -190,6 +198,12 @@ export namespace ToolRegistry {
             memory_append: Tool.init(MemoryAppendTool),
             memory_list: Tool.init(MemoryListTool),
             memory_search: Tool.init(MemorySearchTool),
+            corp_status: Tool.init(CorporateStatusTool),
+            corp_search: Tool.init(CorporateSearchTool),
+            corp_list: Tool.init(CorporateListTool),
+            corp_read: Tool.init(CorporateReadTool),
+            corp_note: Tool.init(CorporateNoteTool),
+            corp_import_tree: Tool.init(CorporateImportTreeTool),
             skill: Tool.init(SkillTool),
             skill_create: Tool.init(SkillCreateTool),
             task_cron: Tool.init(TaskCronTool),
@@ -225,6 +239,12 @@ export namespace ToolRegistry {
               tool.memory_append,
               tool.memory_list,
               tool.memory_search,
+              tool.corp_status,
+              tool.corp_search,
+              tool.corp_list,
+              tool.corp_read,
+              tool.corp_note,
+              tool.corp_import_tree,
               tool.skill,
               tool.skill_create,
               tool.task_cron,

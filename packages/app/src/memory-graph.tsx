@@ -1,6 +1,6 @@
 import { Markdown } from "@macaw/ui/markdown"
-import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
-import { createStore, produce } from "solid-js/store"
+import { For, Show, createEffect, createMemo, onCleanup } from "solid-js"
+import { createStore } from "solid-js/store"
 import type { ServerConnection } from "@/context/server"
 
 type GraphNode = {
@@ -17,21 +17,118 @@ type GraphEdge = {
   target: string
 }
 
+type GraphStats = {
+  total_nodes: number
+  total_edges: number
+  visible_nodes: number
+  visible_edges: number
+  query_nodes: number
+  sampled: boolean
+  indexing: boolean
+  indexed_nodes: number
+  index_total: number
+  cache_age: number
+  last_error?: string
+}
+
 type GraphData = {
   root: string
   nodes: GraphNode[]
   edges: GraphEdge[]
+  stats: GraphStats
 }
 
-type SimNode = GraphNode & {
+type PageItem = GraphNode & {
+  modified: number
+}
+
+type StatusData = {
+  root: string
+  indexing: boolean
+  indexed: number
+  total: number
+  pages: number
+  links: number
+  cache: boolean
+  cache_age: number
+  last_error?: string
+}
+
+type PagesData = {
+  root: string
+  items: PageItem[]
+  next_cursor?: string
+  stats: StatusData & {
+    total_matches: number
+  }
+}
+
+type PlotNode = GraphNode & {
   x: number
   y: number
-  vx: number
-  vy: number
-  pinned: boolean
+}
+
+type GraphLine = GraphEdge & {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+}
+
+type Hub = {
+  category: string
+  x: number
+  y: number
+  count: number
+}
+
+type WikiState = {
+  paging: boolean
+  graphing: boolean
+  error: string | null
+  raw: string
+  query: string
+  mode: "reader" | "graph"
+  pages: PageItem[]
+  next: string | undefined
+  matches: number
+  status: StatusData
+  data: GraphData
+  selected: string | null
+  preview: { path: string; content: string } | null
+  gq: string
 }
 
 const CATEGORY_ORDER = ["core", "entities", "projects", "preferences", "facts", "skills", "other"] as const
+const GOLDEN = Math.PI * (3 - Math.sqrt(5))
+const LIMIT = 1200
+const EMPTY_STATUS: StatusData = {
+  root: "",
+  indexing: false,
+  indexed: 0,
+  total: 0,
+  pages: 0,
+  links: 0,
+  cache: false,
+  cache_age: 0,
+}
+const EMPTY_GRAPH: GraphData = {
+  root: "",
+  nodes: [],
+  edges: [],
+  stats: {
+    total_nodes: 0,
+    total_edges: 0,
+    visible_nodes: 0,
+    visible_edges: 0,
+    query_nodes: 0,
+    sampled: false,
+    indexing: false,
+    indexed_nodes: 0,
+    index_total: 0,
+    cache_age: 0,
+  },
+}
 
 function authHeaders(server: ServerConnection.HttpBase): Record<string, string> {
   if (!server.password) return {}
@@ -40,37 +137,40 @@ function authHeaders(server: ServerConnection.HttpBase): Record<string, string> 
   }
 }
 
-async function fetchGraph(server: ServerConnection.HttpBase): Promise<GraphData> {
-  const res = await fetch(new URL("/global/memory/graph", server.url).toString(), {
+async function fetchStatus(server: ServerConnection.HttpBase): Promise<StatusData> {
+  const res = await fetch(new URL("/global/memory/status", server.url).toString(), {
     headers: authHeaders(server),
   })
-  if (!res.ok) throw new Error(`graph fetch failed: ${res.status}`)
-  return (await res.json()) as GraphData
+  return json<StatusData>(res, "status")
+}
+
+async function fetchPages(server: ServerConnection.HttpBase, query: string, cursor?: string): Promise<PagesData> {
+  const url = new URL("/global/memory/pages", server.url)
+  url.searchParams.set("limit", "140")
+  if (query) url.searchParams.set("query", query)
+  if (cursor) url.searchParams.set("cursor", cursor)
+  const res = await fetch(url.toString(), {
+    headers: authHeaders(server),
+  })
+  return json<PagesData>(res, "pages")
+}
+
+async function fetchGraph(server: ServerConnection.HttpBase, query: string): Promise<GraphData> {
+  const url = new URL("/global/memory/graph", server.url)
+  url.searchParams.set("limit", String(LIMIT))
+  if (query) url.searchParams.set("query", query)
+  const res = await fetch(url.toString(), {
+    headers: authHeaders(server),
+  })
+  return json<GraphData>(res, "graph")
 }
 
 async function fetchPage(server: ServerConnection.HttpBase, path: string): Promise<string> {
   const url = new URL("/global/memory/page", server.url)
   url.searchParams.set("path", path)
   const res = await fetch(url.toString(), { headers: authHeaders(server) })
-  if (!res.ok) throw new Error(`page fetch failed: ${res.status}`)
-  const data = (await res.json()) as { path: string; content: string }
+  const data = await json<{ path: string; content: string }>(res, "page")
   return data.content
-}
-
-function seed(nodes: GraphNode[]): SimNode[] {
-  const sorted = nodes.slice().sort((a, b) => rank(bucket(a.category)) - rank(bucket(b.category)))
-  const radius = Math.max(320, nodes.length * 16)
-  return sorted.map((node, idx) => {
-    const angle = (idx / Math.max(1, sorted.length)) * Math.PI * 2
-    return {
-      ...node,
-      x: Math.cos(angle) * radius + (Math.random() - 0.5) * 90,
-      y: Math.sin(angle) * radius + (Math.random() - 0.5) * 90,
-      vx: 0,
-      vy: 0,
-      pinned: false,
-    }
-  })
 }
 
 function bucket(category: string) {
@@ -78,218 +178,385 @@ function bucket(category: string) {
 }
 
 function rank(category: string) {
-  const idx = (CATEGORY_ORDER as readonly string[]).indexOf(category)
+  const idx = (CATEGORY_ORDER as readonly string[]).indexOf(bucket(category))
   return idx === -1 ? CATEGORY_ORDER.length : idx
 }
 
-export function MemoryGraph(props: {
-  open: boolean
-  onClose: () => void
-  server: ServerConnection.HttpBase
-}) {
-  const [loading, setLoading] = createSignal(false)
-  const [error, setError] = createSignal<string | null>(null)
-  const [data, setStoreData] = createStore<{ root: string; edges: GraphEdge[]; sim: SimNode[] }>({
-    root: "",
-    edges: [],
-    sim: [],
+function score(node: GraphNode) {
+  return node.indegree * 2 + node.outdegree + Math.log2(node.size + 8)
+}
+
+function format(value: number) {
+  return value.toLocaleString()
+}
+
+function message(err: unknown) {
+  return err instanceof Error ? err.message : String(err)
+}
+
+async function json<T>(res: Response, label: string): Promise<T> {
+  const text = await res.text()
+  if (!res.ok) throw new Error(`${label} fetch failed: ${res.status}`)
+  if (/^\s*</.test(text)) {
+    throw new Error(`${label} returned the app HTML. Reload the backend so the memory API routes are available.`)
+  }
+  return JSON.parse(text) as T
+}
+
+function layout(nodes: GraphNode[]): PlotNode[] {
+  if (nodes.length === 0) return []
+  const groups = new Map<string, GraphNode[]>()
+  for (const node of nodes) {
+    const cat = bucket(node.category)
+    const list = groups.get(cat) ?? []
+    list.push(node)
+    groups.set(cat, list)
+  }
+  const cats = [...groups.keys()].sort((a, b) => rank(a) - rank(b))
+  const ring = Math.max(180, Math.sqrt(nodes.length) * 24)
+  const out: PlotNode[] = []
+
+  cats.forEach((cat, idx) => {
+    const items = (groups.get(cat) ?? []).slice().sort((a, b) => score(b) - score(a) || a.id.localeCompare(b.id))
+    const angle = (idx / Math.max(1, cats.length)) * Math.PI * 2 - Math.PI / 2
+    const cx = cats.length === 1 ? 0 : Math.cos(angle) * ring * 1.35
+    const cy = cats.length === 1 ? 0 : Math.sin(angle) * ring * 0.95
+
+    items.forEach((node, i) => {
+      const radius = Math.sqrt(i + 1) * 18
+      const turn = i * GOLDEN + idx * 0.7
+      out.push({
+        ...node,
+        x: cx + Math.cos(turn) * radius,
+        y: cy + Math.sin(turn) * radius * 0.82,
+      })
+    })
+  })
+
+  return out
+}
+
+function radius(node: GraphNode) {
+  return Math.max(5.5, Math.min(15, 5.5 + Math.log2(node.indegree + node.outdegree + 2) * 2.15))
+}
+
+function known(node: PlotNode | undefined): node is PlotNode {
+  return node !== undefined
+}
+
+function hubs(nodes: PlotNode[]): Hub[] {
+  const map = new Map<string, Hub>()
+  for (const node of nodes) {
+    const cat = bucket(node.category)
+    const item = map.get(cat) ?? { category: cat, x: 0, y: 0, count: 0 }
+    item.x += node.x
+    item.y += node.y
+    item.count++
+    map.set(cat, item)
+  }
+  return [...map.values()]
+    .map((hub) => ({
+      ...hub,
+      x: hub.x / hub.count,
+      y: hub.y / hub.count,
+    }))
+    .sort((a, b) => rank(a.category) - rank(b.category))
+}
+
+export function MemoryGraph(props: { open: boolean; onClose: () => void; server: ServerConnection.HttpBase }) {
+  const [state, setState] = createStore<WikiState>({
+    paging: false,
+    graphing: false,
+    error: null,
+    raw: "",
+    query: "",
+    mode: "reader",
+    pages: [],
+    next: undefined,
+    matches: 0,
+    status: EMPTY_STATUS,
+    data: EMPTY_GRAPH,
+    selected: null,
+    preview: null,
+    gq: "",
   })
   const [view, setView] = createStore({ tx: 0, ty: 0, scale: 1 })
-  const [selected, setSelected] = createSignal<string | null>(null)
-  const [preview, setPreview] = createSignal<{ path: string; content: string } | null>(null)
-  const [hover, setHover] = createSignal<string | null>(null)
-  const [query, setQuery] = createSignal("")
-  const [mode, setMode] = createSignal<"reader" | "graph">("graph")
 
   let svg: SVGSVGElement | undefined
-  let raf: number | undefined
-  let running = false
+  let canvas: HTMLCanvasElement | undefined
+  let ro: ResizeObserver | undefined
+  let frame: number | undefined
+  let prun = 0
+  let grun = 0
 
-  const nodeIndex = createMemo(() => {
-    const map = new Map<string, number>()
-    for (let i = 0; i < data.sim.length; i++) map.set(data.sim[i].id, i)
-    return map
-  })
+  const sim = createMemo(() => layout(state.data.nodes))
+  const byId = createMemo(() => new Map(sim().map((node) => [node.id, node] as const)))
+  const lines = createMemo<GraphLine[]>(() =>
+    state.data.edges.flatMap((edge) => {
+      const a = byId().get(edge.source)
+      const b = byId().get(edge.target)
+      if (!a || !b) return []
+      return [
+        {
+          ...edge,
+          x1: a.x,
+          y1: a.y,
+          x2: b.x,
+          y2: b.y,
+        },
+      ]
+    }),
+  )
+  const hub = createMemo(() => hubs(sim()))
 
   const categoryCounts = createMemo(() => {
     const map = new Map<string, number>()
-    for (const node of data.sim) map.set(bucket(node.category), (map.get(bucket(node.category)) ?? 0) + 1)
+    for (const node of sim()) map.set(bucket(node.category), (map.get(bucket(node.category)) ?? 0) + 1)
     return map
   })
 
-  const filtered = createMemo(() => {
-    const q = query().trim().toLowerCase()
-    if (!q) return data.sim
-    return data.sim.filter(
-      (node) => node.label.toLowerCase().includes(q) || node.id.toLowerCase().includes(q),
-    )
-  })
-
   const groups = createMemo(() => {
-    const map = new Map<string, SimNode[]>()
-    for (const node of filtered()) {
-      const cat = bucket(node.category)
+    const map = new Map<string, PageItem[]>()
+    for (const item of state.pages) {
+      const cat = bucket(item.category)
       const list = map.get(cat) ?? []
-      list.push(node)
+      list.push(item)
       map.set(cat, list)
     }
-    const out: { category: string; items: SimNode[] }[] = []
-    for (const [cat, items] of map) {
+    const out: { category: string; items: PageItem[] }[] = []
+    for (const [category, items] of map) {
       items.sort((a, b) => a.label.localeCompare(b.label))
-      out.push({ category: cat, items })
+      out.push({ category, items })
     }
     out.sort((a, b) => rank(a.category) - rank(b.category))
     return out
   })
 
-  const focused = createMemo(() => hover() ?? selected())
+  const selected = createMemo(() => (state.selected ? byId().get(state.selected) : undefined))
   const connected = createMemo(() => {
-    const id = focused()
+    const id = state.selected
     if (!id) return null
     const set = new Set<string>([id])
-    for (const edge of data.edges) {
+    for (const edge of state.data.edges) {
       if (edge.source === id) set.add(edge.target)
       else if (edge.target === id) set.add(edge.source)
     }
     return set
   })
+  const outs = createMemo(() => {
+    const id = state.selected
+    if (!id) return []
+    return state.data.edges
+      .filter((edge) => edge.source === id)
+      .map((edge) => byId().get(edge.target))
+      .filter(known)
+      .sort((a, b) => score(b) - score(a) || a.id.localeCompare(b.id))
+  })
+  const ins = createMemo(() => {
+    const id = state.selected
+    if (!id) return []
+    return state.data.edges
+      .filter((edge) => edge.target === id)
+      .map((edge) => byId().get(edge.source))
+      .filter(known)
+      .sort((a, b) => score(b) - score(a) || a.id.localeCompare(b.id))
+  })
+  const rel = createMemo(() => {
+    const map = new Map<string, PlotNode>()
+    for (const node of [...outs(), ...ins()]) map.set(node.id, node)
+    return [...map.values()].sort((a, b) => score(b) - score(a) || a.id.localeCompare(b.id)).slice(0, 36)
+  })
+  const top = createMemo(() => {
+    const size = Math.min(36, Math.max(12, Math.round(Math.sqrt(sim().length) || 0)))
+    return new Set(
+      sim()
+        .slice()
+        .sort((a, b) => score(b) - score(a) || a.id.localeCompare(b.id))
+        .slice(0, size)
+        .map((node) => node.id),
+    )
+  })
+  const labels = createMemo(() => {
+    const set = new Set(top())
+    if (sim().length <= 80) {
+      for (const node of sim()) set.add(node.id)
+    }
+    if (state.selected) {
+      set.add(state.selected)
+      for (const node of rel()) set.add(node.id)
+    }
+    return set
+  })
+  const note = createMemo(() => {
+    if (state.status.last_error) return `Index warning: ${state.status.last_error}`
+    if (state.status.indexing) {
+      const total = state.status.total > 0 ? format(state.status.total) : "..."
+      return `Indexing memory: ${format(state.status.indexed)} / ${total} pages.`
+    }
+    if (state.mode === "graph" && state.data.stats.sampled) {
+      if (state.query) {
+        return `Showing ${format(state.data.stats.visible_nodes)} graph pages for ${format(state.data.stats.query_nodes)} matches.`
+      }
+      return `Showing ${format(state.data.stats.visible_nodes)} of ${format(state.data.stats.total_nodes)} graph pages.`
+    }
+    if (state.matches > state.pages.length)
+      return `Showing ${format(state.pages.length)} of ${format(state.matches)} pages.`
+    return ""
+  })
+
+  async function loadStatus() {
+    const data = await fetchStatus(props.server).catch((err) => {
+      setState("error", message(err))
+      return undefined
+    })
+    if (!data) return
+    setState("status", data)
+  }
+
+  async function loadPages(term: string, cursor?: string) {
+    const id = ++prun
+    setState("paging", true)
+    setState("error", null)
+    if (!cursor) {
+      setState("pages", [])
+      setState("next", undefined)
+      setState("matches", 0)
+    }
+    const data = await fetchPages(props.server, term, cursor).catch((err) => {
+      setState("error", message(err))
+      return undefined
+    })
+    if (id !== prun) return
+    if (data) {
+      setState("pages", (items) => (cursor ? [...items, ...data.items] : data.items))
+      setState("next", data.next_cursor)
+      setState("matches", data.stats.total_matches)
+      setState("status", data.stats)
+    }
+    setState("paging", false)
+  }
+
+  async function loadGraph(term: string) {
+    const id = ++grun
+    setState("graphing", true)
+    setState("error", null)
+    const data = await fetchGraph(props.server, term).catch((err) => {
+      setState("error", message(err))
+      return undefined
+    })
+    if (id !== grun) return
+    if (data) {
+      setState("data", data)
+      setState("status", {
+        root: data.root,
+        indexing: data.stats.indexing,
+        indexed: data.stats.indexed_nodes,
+        total: data.stats.index_total,
+        pages: data.stats.total_nodes,
+        links: data.stats.total_edges,
+        cache: data.stats.cache_age > 0,
+        cache_age: data.stats.cache_age,
+        last_error: data.stats.last_error,
+      })
+      setState("gq", term)
+      requestAnimationFrame(fit)
+    }
+    setState("graphing", false)
+  }
 
   async function fetchInto(path: string) {
-    setSelected(path)
-    try {
-      const content = await fetchPage(props.server, path)
-      setPreview({ path, content })
-    } catch (err) {
-      setPreview({ path, content: `Failed to load: ${err instanceof Error ? err.message : String(err)}` })
-    }
+    setState("selected", path)
+    const content = await fetchPage(props.server, path).catch((err) => `Failed to load: ${message(err)}`)
+    setState("preview", { path, content })
   }
 
   function openPage(path: string) {
-    setMode("reader")
+    setState("mode", "reader")
     void fetchInto(path)
   }
 
-  async function load() {
-    setLoading(true)
-    setError(null)
-    try {
-      const next = await fetchGraph(props.server)
-      setStoreData({
-        root: next.root,
-        edges: next.edges,
-        sim: seed(next.nodes),
-      })
-      setView({ tx: 0, ty: 0, scale: 1 })
-      setSelected(null)
-      setPreview(null)
-      kick()
-      fit()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setLoading(false)
-    }
+  function refresh() {
+    void loadStatus()
+    void loadPages(state.query)
+    if (state.mode === "graph") void loadGraph(state.query)
   }
 
-  function step() {
-    const nodes = data.sim
-    if (nodes.length === 0) return 0
-
-    const KR = 4800
-    const KS = 0.045
-    const REST = 150
-    const CENTER = 0.0009
-    const DAMP = 0.84
-    const DT = 1
-
-    const fx = new Float64Array(nodes.length)
-    const fy = new Float64Array(nodes.length)
-
-    for (let i = 0; i < nodes.length; i++) {
-      const a = nodes[i]
-      for (let j = i + 1; j < nodes.length; j++) {
-        const b = nodes[j]
-        let dx = a.x - b.x
-        let dy = a.y - b.y
-        let distSq = dx * dx + dy * dy
-        if (distSq < 1) {
-          dx = Math.random() - 0.5
-          dy = Math.random() - 0.5
-          distSq = dx * dx + dy * dy + 1
-        }
-        const dist = Math.sqrt(distSq)
-        const force = KR / distSq
-        const nx = (dx / dist) * force
-        const ny = (dy / dist) * force
-        fx[i] += nx
-        fy[i] += ny
-        fx[j] -= nx
-        fy[j] -= ny
-      }
-    }
-
-    const idx = nodeIndex()
-    for (const edge of data.edges) {
-      const i = idx.get(edge.source)
-      const j = idx.get(edge.target)
-      if (i === undefined || j === undefined) continue
-      const a = nodes[i]
-      const b = nodes[j]
-      const dx = b.x - a.x
-      const dy = b.y - a.y
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1
-      const force = (dist - REST) * KS
-      const nx = (dx / dist) * force
-      const ny = (dy / dist) * force
-      fx[i] += nx
-      fy[i] += ny
-      fx[j] -= nx
-      fy[j] -= ny
-    }
-
-    let maxV = 0
-    setStoreData(
-      "sim",
-      produce((list: SimNode[]) => {
-        for (let i = 0; i < list.length; i++) {
-          const node = list[i]
-          if (node.pinned) {
-            node.vx = 0
-            node.vy = 0
-            continue
-          }
-          node.vx = (node.vx + (fx[i] - node.x * CENTER)) * DAMP
-          node.vy = (node.vy + (fy[i] - node.y * CENTER)) * DAMP
-          node.x += node.vx * DT
-          node.y += node.vy * DT
-          const speed = Math.abs(node.vx) + Math.abs(node.vy)
-          if (speed > maxV) maxV = speed
-        }
-      }),
-    )
-    return maxV
+  function reset() {
+    setView({ tx: 0, ty: 0, scale: 1 })
   }
 
-  function loop() {
-    if (!running) return
-    const v = step()
-    if (v < 0.4) {
-      running = false
-      raf = undefined
-      fit()
-      return
-    }
-    raf = requestAnimationFrame(loop)
+  function color(style: CSSStyleDeclaration, key: string, fallback: string) {
+    return style.getPropertyValue(key).trim() || fallback
   }
 
-  function kick() {
-    if (running) return
-    running = true
-    raf = requestAnimationFrame(loop)
+  function paint() {
+    const el = canvas
+    const ctx = el?.getContext("2d")
+    if (!el || !ctx) return
+    const rect = el.getBoundingClientRect()
+    const w = Math.max(1, Math.floor(rect.width))
+    const h = Math.max(1, Math.floor(rect.height))
+    const ratio = window.devicePixelRatio || 1
+    const width = Math.floor(w * ratio)
+    const height = Math.floor(h * ratio)
+    if (el.width !== width) el.width = width
+    if (el.height !== height) el.height = height
+
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+    ctx.clearRect(0, 0, w, h)
+    const fit = Math.min(w / 1200, h / 840)
+    const ox = (w - 1200 * fit) / 2
+    const oy = (h - 840 * fit) / 2
+    const style = getComputedStyle(el)
+    const id = state.selected
+    const rows = lines()
+
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+    ctx.beginPath()
+    for (const row of rows) {
+      if (id && (row.source === id || row.target === id)) continue
+      ctx.moveTo((row.x1 * view.scale + view.tx + 600) * fit + ox, (row.y1 * view.scale + view.ty + 420) * fit + oy)
+      ctx.lineTo((row.x2 * view.scale + view.tx + 600) * fit + ox, (row.y2 * view.scale + view.ty + 420) * fit + oy)
+    }
+    ctx.strokeStyle = id
+      ? color(style, "--mg-edge-dim", "rgba(15, 23, 42, 0.08)")
+      : color(style, "--mg-edge", "rgba(15, 23, 42, 0.16)")
+    ctx.lineWidth = id ? 0.8 : 1
+    ctx.stroke()
+
+    if (!id) return
+    ctx.beginPath()
+    for (const row of rows) {
+      if (row.source !== id && row.target !== id) continue
+      ctx.moveTo((row.x1 * view.scale + view.tx + 600) * fit + ox, (row.y1 * view.scale + view.ty + 420) * fit + oy)
+      ctx.lineTo((row.x2 * view.scale + view.tx + 600) * fit + ox, (row.y2 * view.scale + view.ty + 420) * fit + oy)
+    }
+    ctx.strokeStyle = color(style, "--mg-edge-active", "#2563eb")
+    ctx.lineWidth = 1.8
+    ctx.stroke()
+  }
+
+  function queue() {
+    if (frame !== undefined) return
+    frame = requestAnimationFrame(() => {
+      frame = undefined
+      paint()
+    })
+  }
+
+  function watch(el: HTMLCanvasElement) {
+    canvas = el
+    ro?.disconnect()
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(queue)
+      ro.observe(el)
+    }
+    queue()
   }
 
   function fit() {
-    const nodes = data.sim
+    const nodes = sim()
     if (nodes.length === 0) {
       setView({ tx: 0, ty: 0, scale: 1 })
       return
@@ -309,45 +576,80 @@ export function MemoryGraph(props: {
     const halfW = Math.max(40, (maxX - minX) / 2)
     const halfH = Math.max(40, (maxY - minY) / 2)
     const pad = 90
-    const sx = (500 - pad) / halfW
-    const sy = (400 - pad) / halfH
-    const scale = Math.min(2, Math.max(0.25, Math.min(sx, sy)))
+    const sx = (560 - pad) / halfW
+    const sy = (420 - pad) / halfH
+    const scale = Math.min(2.25, Math.max(0.2, Math.min(sx, sy)))
     setView({ scale, tx: -cx * scale, ty: -cy * scale })
   }
 
-  onCleanup(() => {
-    running = false
-    if (raf !== undefined) cancelAnimationFrame(raf)
+  createEffect(() => {
+    const value = state.raw.trim()
+    const timer = setTimeout(() => setState("query", value), 160)
+    onCleanup(() => clearTimeout(timer))
   })
 
   let wasOpen = false
+  let loaded = ""
   createEffect(() => {
-    const next = props.open
-    if (next && !wasOpen) {
-      setMode("graph")
-      void load()
+    if (!props.open) {
+      wasOpen = false
+      return
     }
-    wasOpen = next
+    if (!wasOpen) {
+      setState("mode", "reader")
+      setState("error", null)
+      loaded = state.query
+      void loadStatus()
+      void loadPages(state.query)
+    }
+    wasOpen = true
+  })
+
+  createEffect(() => {
+    const term = state.query
+    if (!props.open || !wasOpen || loaded === term) return
+    loaded = term
+    void loadPages(term)
+    if (state.mode === "graph") void loadGraph(term)
+  })
+
+  createEffect(() => {
+    if (!props.open || state.mode !== "graph") return
+    if (state.gq === state.query && state.data.nodes.length > 0) {
+      requestAnimationFrame(fit)
+      return
+    }
+    void loadGraph(state.query)
+  })
+
+  createEffect(() => {
+    if (!props.open || state.mode !== "graph") return
+    lines()
+    view.scale
+    view.tx
+    view.ty
+    state.selected
+    queue()
+  })
+
+  createEffect(() => {
+    if (!props.open || !state.status.indexing) return
+    const timer = setInterval(() => void loadStatus(), 1500)
+    onCleanup(() => clearInterval(timer))
+  })
+
+  onCleanup(() => {
+    ro?.disconnect()
+    if (frame !== undefined) cancelAnimationFrame(frame)
   })
 
   let panning = false
-  let panStart = { x: 0, y: 0, tx: 0, ty: 0 }
-  let dragging: number | null = null
-  let dragOffset = { x: 0, y: 0 }
-
-  function screenToWorld(x: number, y: number) {
-    if (!svg) return { x, y }
-    const box = svg.getBoundingClientRect()
-    return {
-      x: (x - box.left - box.width / 2 - view.tx) / view.scale,
-      y: (y - box.top - box.height / 2 - view.ty) / view.scale,
-    }
-  }
+  let pan = { x: 0, y: 0, tx: 0, ty: 0 }
 
   function onWheel(event: WheelEvent) {
     event.preventDefault()
     const factor = event.deltaY > 0 ? 0.9 : 1.1
-    const next = Math.min(3, Math.max(0.25, view.scale * factor))
+    const next = Math.min(3, Math.max(0.2, view.scale * factor))
     if (!svg) return
     const box = svg.getBoundingClientRect()
     const cx = event.clientX - box.left - box.width / 2
@@ -360,57 +662,39 @@ export function MemoryGraph(props: {
   function onCanvasPointerDown(event: PointerEvent) {
     if ((event.target as Element).closest("[data-node]")) return
     panning = true
-    panStart = { x: event.clientX, y: event.clientY, tx: view.tx, ty: view.ty }
+    pan = { x: event.clientX, y: event.clientY, tx: view.tx, ty: view.ty }
     ;(event.currentTarget as Element).setPointerCapture(event.pointerId)
   }
 
   function onCanvasPointerMove(event: PointerEvent) {
-    if (dragging !== null) {
-      const world = screenToWorld(event.clientX, event.clientY)
-      setStoreData("sim", dragging, {
-        x: world.x - dragOffset.x,
-        y: world.y - dragOffset.y,
-        vx: 0,
-        vy: 0,
-      })
-      kick()
-      return
-    }
     if (!panning) return
     setView({
-      tx: panStart.tx + (event.clientX - panStart.x),
-      ty: panStart.ty + (event.clientY - panStart.y),
+      tx: pan.tx + (event.clientX - pan.x),
+      ty: pan.ty + (event.clientY - pan.y),
     })
   }
 
   function onCanvasPointerUp(event: PointerEvent) {
     panning = false
-    if (dragging !== null) {
-      setStoreData("sim", dragging, "pinned", false)
-      dragging = null
-    }
     try {
       ;(event.currentTarget as Element).releasePointerCapture(event.pointerId)
     } catch {
-      /* noop */
+      return
     }
-  }
-
-  function onNodePointerDown(event: PointerEvent, index: number) {
-    event.stopPropagation()
-    const world = screenToWorld(event.clientX, event.clientY)
-    const node = data.sim[index]
-    dragOffset = { x: world.x - node.x, y: world.y - node.y }
-    dragging = index
-    setStoreData("sim", index, "pinned", true)
   }
 
   function onNodeClick(event: MouseEvent, id: string) {
     event.stopPropagation()
-    void openPage(id)
+    setState("selected", id)
   }
 
-  const viewBox = () => "-500 -400 1000 800"
+  function onNodeKey(event: KeyboardEvent, id: string) {
+    if (event.key !== "Enter" && event.key !== " ") return
+    event.preventDefault()
+    setState("selected", id)
+  }
+
+  const viewBox = () => "-600 -420 1200 840"
 
   return (
     <Show when={props.open}>
@@ -418,110 +702,121 @@ export function MemoryGraph(props: {
         <div class="macaw-wiki-header">
           <span class="macaw-wiki-title">MACAW Wiki</span>
           <span class="macaw-wiki-count">
-            {data.sim.length} pages, {data.edges.length} links
+            {format(state.status.pages)} pages, {format(state.status.links)} links
           </span>
           <input
             type="search"
             class="macaw-wiki-search"
             placeholder="Search pages..."
-            value={query()}
-            onInput={(event) => setQuery(event.currentTarget.value)}
+            value={state.raw}
+            onInput={(event) => setState("raw", event.currentTarget.value)}
           />
           <div class="macaw-wiki-modes" role="tablist">
             <button
               type="button"
               class="macaw-wiki-mode"
-              classList={{ active: mode() === "reader" }}
-              onClick={() => setMode("reader")}
+              classList={{ active: state.mode === "reader" }}
+              onClick={() => setState("mode", "reader")}
               role="tab"
-              aria-selected={mode() === "reader"}
+              aria-selected={state.mode === "reader"}
             >
               Reader
             </button>
             <button
               type="button"
               class="macaw-wiki-mode"
-              classList={{ active: mode() === "graph" }}
+              classList={{ active: state.mode === "graph" }}
               onClick={() => {
-                setSelected(null)
-                setHover(null)
-                setMode("graph")
-                requestAnimationFrame(fit)
+                setState("mode", "graph")
               }}
               role="tab"
-              aria-selected={mode() === "graph"}
+              aria-selected={state.mode === "graph"}
             >
               Graph
             </button>
           </div>
-          <Show when={mode() === "graph"}>
+          <Show when={state.mode === "graph"}>
             <button type="button" class="macaw-wiki-refresh" onClick={fit} title="Fit graph to view">
               Fit
             </button>
+            <button type="button" class="macaw-wiki-refresh" onClick={reset} title="Reset graph view">
+              Reset
+            </button>
           </Show>
-          <button type="button" class="macaw-wiki-refresh" onClick={() => void load()}>
+          <button type="button" class="macaw-wiki-refresh" onClick={refresh}>
             Refresh
           </button>
           <button type="button" class="macaw-wiki-close" onClick={() => props.onClose()} aria-label="Close">
-            ×
+            x
           </button>
         </div>
         <div class="macaw-wiki-body">
           <aside class="macaw-wiki-side">
+            <Show when={note()}>{(text) => <div class="macaw-wiki-side-note">{text()}</div>}</Show>
+            <Show when={state.paging && state.pages.length === 0}>
+              <div class="macaw-wiki-side-empty">Loading pages...</div>
+            </Show>
             <Show
-              when={data.sim.length > 0}
+              when={state.pages.length > 0}
               fallback={
-                <Show when={!loading()}>
-                  <div class="macaw-wiki-side-empty">No pages yet</div>
+                <Show when={!state.paging}>
+                  <div class="macaw-wiki-side-empty">{state.query ? "No matches" : "No pages yet"}</div>
                 </Show>
               }
             >
-              <Show
-                when={groups().length > 0}
-                fallback={<div class="macaw-wiki-side-empty">No matches</div>}
-              >
-                <For each={groups()}>
-                  {(group) => (
-                    <div class="macaw-wiki-group">
-                      <div class="macaw-wiki-group-head">
-                        <span>{group.category}</span>
-                        <span class="macaw-wiki-group-count">{group.items.length}</span>
-                      </div>
-                      <For each={group.items}>
-                        {(node) => (
-                          <button
-                            type="button"
-                            class="macaw-wiki-item"
-                            classList={{ active: selected() === node.id }}
-                            data-category={bucket(node.category)}
-                            onClick={() => void openPage(node.id)}
-                            title={node.id}
-                          >
-                            <span class="macaw-wiki-item-dot" />
-                            <span class="macaw-wiki-item-label">{node.label}</span>
-                          </button>
-                        )}
-                      </For>
+              <For each={groups()}>
+                {(group) => (
+                  <div class="macaw-wiki-group">
+                    <div class="macaw-wiki-group-head">
+                      <span>{group.category}</span>
+                      <span class="macaw-wiki-group-count">{group.items.length}</span>
                     </div>
-                  )}
-                </For>
-              </Show>
+                    <For each={group.items}>
+                      {(item) => (
+                        <button
+                          type="button"
+                          class="macaw-wiki-item"
+                          classList={{ active: state.selected === item.id }}
+                          data-category={bucket(item.category)}
+                          onClick={() => void openPage(item.id)}
+                          title={item.id}
+                        >
+                          <span class="macaw-wiki-item-dot" />
+                          <span class="macaw-wiki-item-label">{item.label}</span>
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                )}
+              </For>
+            </Show>
+            <Show when={state.next}>
+              {(cursor) => (
+                <button
+                  type="button"
+                  class="macaw-wiki-more"
+                  disabled={state.paging}
+                  onClick={() => void loadPages(state.query, cursor())}
+                >
+                  {state.paging ? "Loading..." : "Load more"}
+                </button>
+              )}
             </Show>
           </aside>
-          <main class="macaw-wiki-main">
-            <Show when={loading() && data.sim.length === 0}>
-              <div class="macaw-wiki-state">Loading memory wiki...</div>
+          <main class="macaw-wiki-main" classList={{ graph: state.mode === "graph" }}>
+            <Show when={state.error}>
+              <div class="macaw-wiki-state error">{state.error}</div>
             </Show>
-            <Show when={error()}>
-              <div class="macaw-wiki-state error">{error()}</div>
-            </Show>
-            <Show when={!loading() && !error() && data.sim.length === 0}>
-              <div class="macaw-wiki-state">No memory pages yet. Talk to MACAW and it will start filling in.</div>
-            </Show>
-            <Show when={mode() === "reader" && data.sim.length > 0}>
+            <Show when={!state.error && state.mode === "reader"}>
               <Show
-                when={preview()}
-                fallback={<div class="macaw-wiki-state">Pick a page from the left to read.</div>}
+                when={state.preview}
+                fallback={
+                  <div class="macaw-wiki-state">
+                    {state.paging && state.pages.length === 0
+                      ? "Loading memory wiki..."
+                      : "Pick a page from the left to read."}
+                  </div>
+                }
               >
                 {(value) => (
                   <article class="macaw-wiki-reader">
@@ -531,102 +826,182 @@ export function MemoryGraph(props: {
                 )}
               </Show>
             </Show>
-            <Show when={mode() === "graph" && data.sim.length > 0}>
-              <div class="macaw-wiki-graph">
-                <svg
-                  ref={(el) => {
-                    svg = el
-                  }}
-                  class="macaw-graph-svg"
-                  viewBox={viewBox()}
-                  preserveAspectRatio="xMidYMid meet"
-                  onWheel={onWheel}
-                  onPointerDown={onCanvasPointerDown}
-                  onPointerMove={onCanvasPointerMove}
-                  onPointerUp={onCanvasPointerUp}
-                  onPointerCancel={onCanvasPointerUp}
-                >
-                  <g transform={`translate(${view.tx} ${view.ty}) scale(${view.scale})`}>
-                    <g class="macaw-graph-edges">
-                      <For each={data.edges}>
-                        {(edge) => {
-                          const idx = nodeIndex()
-                          const i = idx.get(edge.source)
-                          const j = idx.get(edge.target)
-                          if (i === undefined || j === undefined) return null
-                          const active = () => {
-                            const id = focused()
-                            return id !== null && (edge.source === id || edge.target === id)
-                          }
-                          const dim = () => {
-                            const id = focused()
-                            return id !== null && edge.source !== id && edge.target !== id
-                          }
-                          return (
-                            <line
-                              class="macaw-graph-edge"
-                              classList={{ active: active(), dim: dim() }}
-                              x1={data.sim[i].x}
-                              y1={data.sim[i].y}
-                              x2={data.sim[j].x}
-                              y2={data.sim[j].y}
-                            />
-                          )
-                        }}
+            <Show when={!state.error && state.mode === "graph"}>
+              <div class="macaw-wiki-graph" data-component="macaw-wiki-graph">
+                <Show when={state.graphing && sim().length === 0}>
+                  <div class="macaw-wiki-state">Loading graph...</div>
+                </Show>
+                <Show when={!state.graphing && sim().length === 0}>
+                  <div class="macaw-wiki-state">No graph pages yet.</div>
+                </Show>
+                <Show when={sim().length > 0}>
+                  <div class="macaw-graph-map">
+                    <canvas
+                      ref={watch}
+                      class="macaw-graph-canvas"
+                      data-component="macaw-wiki-graph-canvas"
+                      aria-hidden="true"
+                    />
+                    <svg
+                      ref={(el) => {
+                        svg = el
+                      }}
+                      class="macaw-graph-svg"
+                      data-component="macaw-wiki-graph-nodes"
+                      viewBox={viewBox()}
+                      preserveAspectRatio="xMidYMid meet"
+                      onWheel={onWheel}
+                      onPointerDown={onCanvasPointerDown}
+                      onPointerMove={onCanvasPointerMove}
+                      onPointerUp={onCanvasPointerUp}
+                      onPointerCancel={onCanvasPointerUp}
+                    >
+                      <g transform={`translate(${view.tx} ${view.ty}) scale(${view.scale})`}>
+                        <g class="macaw-graph-clusters" aria-hidden="true">
+                          <For each={hub()}>
+                            {(item) => (
+                              <g
+                                class="macaw-graph-cluster"
+                                data-category={item.category}
+                                transform={`translate(${item.x} ${item.y})`}
+                              >
+                                <circle class="macaw-graph-cluster-ring" r={Math.max(48, Math.sqrt(item.count) * 16)} />
+                                <text class="macaw-graph-cluster-name" y="-3">
+                                  {item.category}
+                                </text>
+                                <text class="macaw-graph-cluster-count" y="13">
+                                  {item.count}
+                                </text>
+                              </g>
+                            )}
+                          </For>
+                        </g>
+                        <g class="macaw-graph-nodes">
+                          <For each={sim()}>
+                            {(node) => {
+                              const r = () => radius(node)
+                              const isSelected = () => state.selected === node.id
+                              const linked = () => {
+                                const set = connected()
+                                return set !== null && set.has(node.id) && !isSelected()
+                              }
+                              const dim = () => {
+                                const set = connected()
+                                return set !== null && !set.has(node.id)
+                              }
+                              return (
+                                <g
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-label={node.label}
+                                  data-component="macaw-wiki-graph-node"
+                                  data-node={node.id}
+                                  data-category={bucket(node.category)}
+                                  class="macaw-graph-node"
+                                  classList={{ selected: isSelected(), linked: linked(), dim: dim() }}
+                                  transform={`translate(${node.x} ${node.y})`}
+                                  onClick={(event) => onNodeClick(event, node.id)}
+                                  onKeyDown={(event) => onNodeKey(event, node.id)}
+                                >
+                                  <circle class="macaw-graph-node-hit" r={Math.max(r() + 7, 14)} />
+                                  <circle class="macaw-graph-node-fill" r={r()} />
+                                  <Show when={labels().has(node.id)}>
+                                    <text class="macaw-graph-node-label" y={r() + 12}>
+                                      {node.label}
+                                    </text>
+                                  </Show>
+                                </g>
+                              )
+                            }}
+                          </For>
+                        </g>
+                      </g>
+                    </svg>
+                    <div class="macaw-graph-legend">
+                      <For each={CATEGORY_ORDER}>
+                        {(category) => (
+                          <Show when={(categoryCounts().get(category) ?? 0) > 0}>
+                            <div class="macaw-graph-legend-item" data-category={category}>
+                              <span class="macaw-graph-legend-dot" />
+                              <span>{category}</span>
+                              <span class="macaw-graph-legend-count">{categoryCounts().get(category)}</span>
+                            </div>
+                          </Show>
+                        )}
                       </For>
-                    </g>
-                    <g class="macaw-graph-nodes">
-                      <For each={data.sim}>
-                        {(node, index) => {
-                          const r = () => Math.max(7, Math.min(22, 7 + (node.indegree + node.outdegree) * 1.6))
-                          const isSelected = () => selected() === node.id
-                          const isHover = () => hover() === node.id
-                          const dim = () => {
-                            const set = connected()
-                            return set !== null && !set.has(node.id)
-                          }
-                          const linked = () => {
-                            const set = connected()
-                            return set !== null && set.has(node.id) && !isSelected() && !isHover()
-                          }
-                          return (
-                            <g
-                              data-node={node.id}
-                              data-category={bucket(node.category)}
-                              class="macaw-graph-node"
-                              classList={{ selected: isSelected(), hover: isHover(), dim: dim(), linked: linked() }}
-                              transform={`translate(${node.x} ${node.y})`}
-                              onPointerDown={(event) => onNodePointerDown(event, index())}
-                              onPointerEnter={() => setHover(node.id)}
-                              onPointerLeave={() => setHover((curr) => (curr === node.id ? null : curr))}
-                              onClick={(event) => onNodeClick(event, node.id)}
-                            >
-                              <circle class="macaw-graph-node-hit" r={Math.max(r() + 6, 14)} />
-                              <circle class="macaw-graph-node-fill" r={r()} />
-                              <text class="macaw-graph-node-label" y={r() + 12}>
-                                {node.label}
-                              </text>
-                            </g>
-                          )
-                        }}
-                      </For>
-                    </g>
-                  </g>
-                </svg>
-                <div class="macaw-graph-legend">
-                  <For each={CATEGORY_ORDER}>
-                    {(category) => (
-                      <Show when={(categoryCounts().get(category) ?? 0) > 0}>
-                        <div class="macaw-graph-legend-item" data-category={category}>
-                          <span class="macaw-graph-legend-dot" />
-                          <span>{category}</span>
-                          <span class="macaw-graph-legend-count">{categoryCounts().get(category)}</span>
-                        </div>
-                      </Show>
-                    )}
-                  </For>
-                </div>
+                    </div>
+                  </div>
+                </Show>
               </div>
+              <aside class="macaw-graph-inspector" data-component="macaw-wiki-graph-inspector">
+                <Show
+                  when={selected()}
+                  fallback={
+                    <div class="macaw-graph-inspector-empty">
+                      <div class="macaw-graph-inspector-title">No node selected</div>
+                      <div class="macaw-graph-inspector-sub">Selection details will appear here.</div>
+                    </div>
+                  }
+                >
+                  {(node) => (
+                    <>
+                      <div class="macaw-graph-inspector-head" data-category={bucket(node().category)}>
+                        <span class="macaw-graph-inspector-dot" />
+                        <div class="macaw-graph-inspector-copy">
+                          <div class="macaw-graph-inspector-title">{node().label}</div>
+                          <div class="macaw-graph-inspector-path" title={node().id}>
+                            {node().id}
+                          </div>
+                        </div>
+                      </div>
+                      <div class="macaw-graph-inspector-stats">
+                        <div>
+                          <span>{format(node().outdegree)}</span>
+                          <small>out</small>
+                        </div>
+                        <div>
+                          <span>{format(node().indegree)}</span>
+                          <small>in</small>
+                        </div>
+                        <div>
+                          <span>{bucket(node().category)}</span>
+                          <small>group</small>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        class="macaw-graph-inspector-open"
+                        data-component="macaw-wiki-graph-open"
+                        onClick={() => openPage(node().id)}
+                      >
+                        Open page
+                      </button>
+                      <div class="macaw-graph-related">
+                        <div class="macaw-graph-related-head">Related pages</div>
+                        <Show
+                          when={rel().length > 0}
+                          fallback={<div class="macaw-graph-related-empty">No visible links</div>}
+                        >
+                          <For each={rel()}>
+                            {(item) => (
+                              <button
+                                type="button"
+                                class="macaw-graph-related-item"
+                                data-category={bucket(item.category)}
+                                onClick={() => setState("selected", item.id)}
+                                title={item.id}
+                              >
+                                <span class="macaw-graph-related-dot" />
+                                <span>{item.label}</span>
+                              </button>
+                            )}
+                          </For>
+                        </Show>
+                      </div>
+                    </>
+                  )}
+                </Show>
+              </aside>
             </Show>
           </main>
         </div>

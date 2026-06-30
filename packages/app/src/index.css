@@ -1777,11 +1777,32 @@
     --mg-facts: #93c5fd;
     --mg-skills: #f59e0b;
     --mg-other: #94a3b8;
+    --mg-edge: rgba(226, 232, 240, 0.18);
+    --mg-edge-dim: rgba(226, 232, 240, 0.07);
+    --mg-edge-active: rgba(96, 214, 255, 0.8);
+  }
+
+  .macaw-graph-map {
+    position: relative;
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .macaw-graph-canvas,
+  .macaw-graph-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .macaw-graph-canvas {
+    pointer-events: none;
   }
 
   .macaw-graph-svg {
-    width: 100%;
-    height: 100%;
     touch-action: none;
     cursor: grab;
   }
@@ -1790,19 +1811,34 @@
     cursor: grabbing;
   }
 
-  .macaw-graph-edge {
-    stroke: rgba(226, 232, 240, 0.18);
+  .macaw-graph-cluster {
+    pointer-events: none;
+  }
+
+  .macaw-graph-cluster-ring {
+    fill: rgba(255, 255, 255, 0.025);
+    stroke: rgba(255, 255, 255, 0.08);
     stroke-width: 1;
-    transition: stroke 140ms ease, stroke-width 140ms ease, opacity 140ms ease;
   }
 
-  .macaw-graph-edge.active {
-    stroke: rgba(96, 214, 255, 0.75);
-    stroke-width: 1.8;
+  .macaw-graph-cluster-name,
+  .macaw-graph-cluster-count {
+    fill: rgba(226, 232, 240, 0.52);
+    text-anchor: middle;
+    text-transform: uppercase;
+    user-select: none;
+    pointer-events: none;
   }
 
-  .macaw-graph-edge.dim {
-    opacity: 0.25;
+  .macaw-graph-cluster-name {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .macaw-graph-cluster-count {
+    font-size: 9px;
+    font-weight: 600;
   }
 
   .macaw-graph-node {
@@ -1812,6 +1848,11 @@
 
   .macaw-graph-node.dim {
     opacity: 0.28;
+  }
+
+  .macaw-graph-node:focus-visible .macaw-graph-node-fill {
+    stroke: rgba(244, 247, 255, 0.95);
+    stroke-width: 2.5;
   }
 
   .macaw-graph-node-hit {
@@ -1854,7 +1895,7 @@
     filter: brightness(1.1);
   }
 
-  .macaw-graph-node.hover .macaw-graph-node-fill,
+  .macaw-graph-node:hover .macaw-graph-node-fill,
   .macaw-graph-node.selected .macaw-graph-node-fill {
     filter: brightness(1.25);
     stroke: rgba(244, 247, 255, 0.95);
@@ -1875,7 +1916,7 @@
     stroke-linejoin: round;
   }
 
-  .macaw-graph-node.hover .macaw-graph-node-label,
+  .macaw-graph-node:hover .macaw-graph-node-label,
   .macaw-graph-node.selected .macaw-graph-node-label {
     fill: rgba(244, 247, 255, 1);
     font-weight: 700;
@@ -1934,6 +1975,186 @@
   .macaw-graph-legend-count {
     margin-left: auto;
     color: rgba(226, 232, 240, 0.45);
+  }
+
+  .macaw-graph-inspector {
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(12, 18, 34, 0.92);
+    color: rgba(244, 247, 255, 0.94);
+  }
+
+  .macaw-graph-inspector-empty,
+  .macaw-graph-inspector-head,
+  .macaw-graph-inspector-stats,
+  .macaw-graph-related {
+    margin: 0.75rem;
+  }
+
+  .macaw-graph-inspector-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .macaw-graph-inspector-dot,
+  .macaw-graph-related-dot {
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--mg-other);
+  }
+
+  .macaw-graph-inspector-dot {
+    width: 0.65rem;
+    height: 0.65rem;
+    margin-top: 0.2rem;
+  }
+
+  .macaw-graph-related-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+  }
+
+  .macaw-graph-inspector-copy {
+    min-width: 0;
+  }
+
+  .macaw-graph-inspector-title {
+    color: rgba(244, 247, 255, 0.98);
+    font-size: 0.84rem;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .macaw-graph-inspector-sub,
+  .macaw-graph-inspector-path,
+  .macaw-graph-related-empty {
+    color: rgba(226, 232, 240, 0.55);
+    font-size: 0.7rem;
+    line-height: 1.4;
+  }
+
+  .macaw-graph-inspector-path {
+    margin-top: 0.2rem;
+    overflow-wrap: anywhere;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .macaw-graph-inspector-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+
+  .macaw-graph-inspector-stats div {
+    min-width: 0;
+    padding: 0.5rem 0.45rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.45rem;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .macaw-graph-inspector-stats span,
+  .macaw-graph-inspector-stats small {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .macaw-graph-inspector-stats span {
+    color: rgba(244, 247, 255, 0.98);
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .macaw-graph-inspector-stats small {
+    margin-top: 0.12rem;
+    color: rgba(226, 232, 240, 0.5);
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .macaw-graph-inspector-open {
+    width: calc(100% - 1.5rem);
+    margin: 0 0.75rem 0.75rem;
+    padding: 0.42rem 0.55rem;
+    border: 1px solid rgba(96, 214, 255, 0.36);
+    border-radius: 0.45rem;
+    background: rgba(96, 214, 255, 0.12);
+    color: rgba(244, 247, 255, 0.96);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.74rem;
+    font-weight: 700;
+  }
+
+  .macaw-graph-inspector-open:hover,
+  .macaw-graph-related-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .macaw-graph-related-head {
+    margin-bottom: 0.45rem;
+    color: rgba(226, 232, 240, 0.58);
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .macaw-graph-related-item {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
+    min-width: 0;
+    padding: 0.34rem 0.4rem;
+    border: 1px solid transparent;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: rgba(244, 247, 255, 0.88);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.72rem;
+    text-align: left;
+  }
+
+  .macaw-graph-related-item span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .macaw-graph-inspector-head[data-category="core"] .macaw-graph-inspector-dot,
+  .macaw-graph-related-item[data-category="core"] .macaw-graph-related-dot {
+    background: var(--mg-core);
+  }
+  .macaw-graph-inspector-head[data-category="entities"] .macaw-graph-inspector-dot,
+  .macaw-graph-related-item[data-category="entities"] .macaw-graph-related-dot {
+    background: var(--mg-entities);
+  }
+  .macaw-graph-inspector-head[data-category="projects"] .macaw-graph-inspector-dot,
+  .macaw-graph-related-item[data-category="projects"] .macaw-graph-related-dot {
+    background: var(--mg-projects);
+  }
+  .macaw-graph-inspector-head[data-category="preferences"] .macaw-graph-inspector-dot,
+  .macaw-graph-related-item[data-category="preferences"] .macaw-graph-related-dot {
+    background: var(--mg-preferences);
+  }
+  .macaw-graph-inspector-head[data-category="facts"] .macaw-graph-inspector-dot,
+  .macaw-graph-related-item[data-category="facts"] .macaw-graph-related-dot {
+    background: var(--mg-facts);
+  }
+  .macaw-graph-inspector-head[data-category="skills"] .macaw-graph-inspector-dot,
+  .macaw-graph-related-item[data-category="skills"] .macaw-graph-related-dot {
+    background: var(--mg-skills);
   }
 
   .macaw-toasts {
@@ -3252,16 +3473,19 @@
     --mg-facts: #0ea5e9;
     --mg-skills: #ea580c;
     --mg-other: #94a3b8;
+    --mg-edge: rgba(15, 23, 42, 0.16);
+    --mg-edge-dim: rgba(15, 23, 42, 0.06);
+    --mg-edge-active: #2563eb;
   }
 
-  .macaw-graph-edge {
-    stroke: rgba(15, 23, 42, 0.22);
-    stroke-width: 1.25;
+  .macaw-graph-cluster-ring {
+    fill: rgba(15, 23, 42, 0.025);
+    stroke: rgba(15, 23, 42, 0.08);
   }
 
-  .macaw-graph-edge.active {
-    stroke: #2563eb;
-    stroke-width: 2;
+  .macaw-graph-cluster-name,
+  .macaw-graph-cluster-count {
+    fill: rgba(15, 23, 42, 0.42);
   }
 
   .macaw-graph-node-fill {
@@ -3269,7 +3493,7 @@
     stroke-width: 1.5;
   }
 
-  .macaw-graph-node.hover .macaw-graph-node-fill,
+  .macaw-graph-node:hover .macaw-graph-node-fill,
   .macaw-graph-node.selected .macaw-graph-node-fill {
     stroke: #0f172a;
     stroke-width: 2;
@@ -3281,7 +3505,7 @@
     stroke-width: 3.5px;
   }
 
-  .macaw-graph-node.hover .macaw-graph-node-label,
+  .macaw-graph-node:hover .macaw-graph-node-label,
   .macaw-graph-node.selected .macaw-graph-node-label {
     fill: #0f172a;
   }
@@ -3295,6 +3519,51 @@
 
   .macaw-graph-legend-count {
     color: #94a3b8;
+  }
+
+  .macaw-graph-inspector {
+    border-left-color: #eef0f3;
+    background: #fafbfc;
+    color: #1f2937;
+  }
+
+  .macaw-graph-inspector-title {
+    color: #0f172a;
+  }
+
+  .macaw-graph-inspector-sub,
+  .macaw-graph-inspector-path,
+  .macaw-graph-related-empty {
+    color: #7a8392;
+  }
+
+  .macaw-graph-inspector-stats div {
+    border-color: #e4e8ee;
+    background: #ffffff;
+  }
+
+  .macaw-graph-inspector-stats span {
+    color: #0f172a;
+  }
+
+  .macaw-graph-inspector-stats small,
+  .macaw-graph-related-head {
+    color: #8a94a4;
+  }
+
+  .macaw-graph-inspector-open {
+    border-color: #dbe7ff;
+    background: #edf3ff;
+    color: #1d4ed8;
+  }
+
+  .macaw-graph-inspector-open:hover,
+  .macaw-graph-related-item:hover {
+    background: #f3f5f9;
+  }
+
+  .macaw-graph-related-item {
+    color: #1f2937;
   }
 
   .macaw-wiki-overlay {
@@ -3430,6 +3699,17 @@
     font-size: 0.72rem;
   }
 
+  .macaw-wiki-side-note {
+    margin: 0 0 0.65rem;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid #dbe7ff;
+    border-radius: 0.45rem;
+    background: #edf3ff;
+    color: #1d4ed8;
+    font-size: 0.7rem;
+    line-height: 1.4;
+  }
+
   .macaw-wiki-group + .macaw-wiki-group {
     margin-top: 0.85rem;
   }
@@ -3516,6 +3796,28 @@
     white-space: nowrap;
   }
 
+  .macaw-wiki-more {
+    width: 100%;
+    margin-top: 0.7rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid #dbe1ea;
+    border-radius: 0.45rem;
+    background: #ffffff;
+    color: #334155;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.74rem;
+  }
+
+  .macaw-wiki-more:hover {
+    background: #f3f5f9;
+  }
+
+  .macaw-wiki-more:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
   .macaw-wiki-main {
     position: relative;
     min-width: 0;
@@ -3524,6 +3826,11 @@
     flex-direction: column;
     overflow: hidden;
     background: #fff;
+  }
+
+  .macaw-wiki-main.graph {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 17rem;
   }
 
   .macaw-wiki-state {
@@ -3702,9 +4009,17 @@
     overflow: hidden;
   }
 
+  .macaw-wiki-main.graph .macaw-wiki-state {
+    min-height: 0;
+  }
+
   @media (max-width: 1080px) {
     .macaw-wiki-body {
       grid-template-columns: 13rem minmax(0, 1fr);
+    }
+
+    .macaw-wiki-main.graph {
+      grid-template-columns: minmax(0, 1fr) 15rem;
     }
 
     .macaw-wiki-search {
@@ -3716,6 +4031,11 @@
     .macaw-wiki-body {
       grid-template-columns: 1fr;
       grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .macaw-wiki-main.graph {
+      grid-template-columns: 1fr;
+      grid-template-rows: minmax(20rem, 1fr) auto;
     }
 
     .macaw-wiki-side {
@@ -3742,6 +4062,12 @@
     .macaw-wiki-crumb {
       margin: -0.85rem -1rem 0.7rem;
       padding: 0.45rem 1rem;
+    }
+
+    .macaw-graph-inspector {
+      max-height: 16rem;
+      border-left: 0;
+      border-top: 1px solid #eef0f3;
     }
   }
 

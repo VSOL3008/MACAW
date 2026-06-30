@@ -16,7 +16,9 @@ import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import PROMPT_MACAW from "../session/prompt/macaw.txt"
 import PROMPT_ZERO_TRUST from "../session/prompt/zero-trust.txt"
+import PROMPT_CORPORATE_SEARCH from "../session/prompt/corporate-search.txt"
 import { Permission } from "@/permission"
+import { CorporatePermission } from "@/corporate/permission"
 import { mergeDeep, pipe, sortBy, values } from "remeda"
 import { Global } from "@/global"
 import path from "path"
@@ -202,6 +204,20 @@ export namespace Agent {
               mode: "primary",
               native: true,
               prompt: PROMPT_MACAW + "\n\n" + PROMPT_ZERO_TRUST,
+            },
+            corporate_search: {
+              name: "corporate_search",
+              description:
+                "Read-only corporate shared-drive search agent. Uses the local corporate mirror, then targeted read-only file analysis.",
+              options: {},
+              permission: Permission.merge(
+                defaults,
+                CorporatePermission.rules(),
+                user,
+              ),
+              mode: "primary",
+              native: true,
+              prompt: PROMPT_MACAW + "\n\n" + PROMPT_CORPORATE_SEARCH,
             },
             plan: {
               name: "plan",

@@ -14,6 +14,7 @@ import { WorkspaceRouterMiddleware } from "./router"
 import { errors } from "./error"
 import { GlobalRoutes } from "./routes/global"
 import { MemoryRoutes } from "./routes/memory"
+import { CorporateRoutes } from "./routes/corporate"
 import { TaskRoutes } from "./routes/task"
 import * as Scheduler from "../task/scheduler"
 import { MDNS } from "./mdns"
@@ -103,6 +104,7 @@ export namespace Server {
       })
       .route("/global", GlobalRoutes())
       .route("/global/memory", MemoryRoutes())
+      .route("/global/corporate", CorporateRoutes())
       .route("/global/task", TaskRoutes())
       .put(
         "/auth/:providerID",
