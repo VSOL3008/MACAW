@@ -47,6 +47,8 @@ import type {
   GlobalConfigUpdateErrors,
   GlobalConfigUpdateResponses,
   GlobalCorporateImportErrors,
+  GlobalCorporateImportFileErrors,
+  GlobalCorporateImportFileResponses,
   GlobalCorporateImportResponses,
   GlobalCorporateListResponses,
   GlobalCorporateNoteResponses,
@@ -490,6 +492,51 @@ export class Corporate extends HeyApiClient {
       ThrowOnError
     >({
       url: "/global/corporate/import",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Import corporate tree file
+   *
+   * Stream a local tree command output file into the corporate sidecar mirror.
+   */
+  public importFile<ThrowOnError extends boolean = false>(
+    parameters?: {
+      source?: string
+      root?: string
+      label?: string
+      tree?: string
+      file?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "source" },
+            { in: "body", key: "root" },
+            { in: "body", key: "label" },
+            { in: "body", key: "tree" },
+            { in: "body", key: "file" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      GlobalCorporateImportFileResponses,
+      GlobalCorporateImportFileErrors,
+      ThrowOnError
+    >({
+      url: "/global/corporate/import/file",
       ...options,
       ...params,
       headers: {

@@ -1,7 +1,8 @@
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import { mkdirSync } from "fs"
+import { createReadStream, mkdirSync } from "fs"
+import { createInterface } from "readline"
 import { Database } from "bun:sqlite"
 import { Config } from "@/config/config"
 import { AppFileSystem } from "@/filesystem"
@@ -15,6 +16,7 @@ const ENTRIES = 200
 const BYTES = 5 * 1024 * 1024
 const TEXT = 12_000
 const SEARCH_MAX = 500
+const BATCH = 5000
 const ENTRY_SQL = `INSERT INTO corporate_entry (
   source, path, name, ext, type, parent, depth, size, modified, discovered, stale, notes, aliases
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -135,7 +137,15 @@ type Hit = Row & {
   rank?: number
 }
 
+type ImportInput = {
+  source: string
+  root?: string
+  label?: string
+  tree?: string
+}
+
 let store: Store | undefined
+let clock = 0
 
 export function reset() {
   store?.db.close()
@@ -157,14 +167,15 @@ function norm(input: string) {
   return input.split(path.sep).join("/").replace(/^\.\/+/, "").replace(/^\/+/, "")
 }
 
-function key(source: string, rel: string) {
-  return `${source}\u0000${rel}`
-}
-
 function inside(root: string, file: string) {
   const base = process.platform === "win32" ? root.toLowerCase() : root
   const next = process.platform === "win32" ? file.toLowerCase() : file
   return next === base || next.startsWith(base.endsWith(path.sep) ? base : base + path.sep)
+}
+
+function stamp() {
+  clock = Math.max(Date.now(), clock + 1)
+  return clock
 }
 
 async function db() {
@@ -340,13 +351,14 @@ function bulk(sql: Database, items: Entry[]) {
 
 function syncFts(sql: Database, source: string) {
   sql.query("DELETE FROM corporate_fts WHERE source = ?").run(source)
-  const rows = sql
-    .query("SELECT source, path, name, ext, type, parent, depth, size, modified, discovered, stale, notes, aliases FROM corporate_entry WHERE source = ?")
-    .all(source) as Row[]
-  const insert = sql.query(
-    "INSERT INTO corporate_fts (source, path, name, ext, parent, notes, aliases) VALUES (?, ?, ?, ?, ?, ?, ?)",
-  )
-  for (const row of rows) insert.run(row.source, row.path, row.name, row.ext, row.parent, row.notes, row.aliases)
+  sql
+    .query(
+      `INSERT INTO corporate_fts (source, path, name, ext, parent, notes, aliases)
+      SELECT source, path, name, ext, parent, notes, aliases
+      FROM corporate_entry
+      WHERE source = ? AND stale = 0`,
+    )
+    .run(source)
 }
 
 function tokens(query: string) {
@@ -372,15 +384,15 @@ function score(row: Hit, query: string, toks: string[]) {
   return exact + start + contain + ext + stale + rank + Math.max(0, 200 - row.depth)
 }
 
-function parseLine(line: string) {
-  const raw = line.replace(/\r/g, "")
+function parse(line: string) {
+  const raw = line.replace(/^\uFEFF/, "").replace(/\r/g, "")
   const text = raw.trim()
   if (!text) return
   if (text === "." || /^[A-Za-z]:\.$/.test(text)) return
   if (/^(Folder PATH listing|Volume serial number|[0-9]+ directories?,|[0-9]+ files?)/i.test(text)) return
   if (/^```/.test(text) || /^#+\s/.test(text)) return
 
-  const connector = raw.match(/^([ │|\t]*)(?:[├└]\u2500+\s*|[|`+\\]-+\s*)(.+)$/)
+  const connector = raw.match(/^([ \u2502|\t]*)(?:[\u251c\u2514]\u2500+\s*|[|`+\\]-+\s*)(.+)$/)
   if (connector) {
     return {
       depth: Math.max(0, Math.floor(connector[1].replace(/\t/g, "    ").length / 4)),
@@ -388,7 +400,7 @@ function parseLine(line: string) {
     }
   }
 
-  const plain = raw.match(/^([ │|\t]+)([^│├└]+)$/)
+  const plain = raw.match(/^([ \u2502|\t]+)([^\u2502\u251c\u2514]+)$/)
   if (!plain) return
   return {
     depth: Math.max(0, Math.floor(plain[1].replace(/\t/g, "    ").length / 4) - 1),
@@ -396,59 +408,94 @@ function parseLine(line: string) {
   }
 }
 
-function parseTree(input: { source: string; content: string; now: number }) {
+function* textLines(text: string) {
+  let start = 0
+  while (start <= text.length) {
+    const end = text.indexOf("\n", start)
+    if (end === -1) {
+      if (start < text.length) yield text.slice(start)
+      return
+    }
+    yield text.slice(start, end)
+    start = end + 1
+  }
+}
+
+async function* fileLines(file: string) {
+  const enc = await encoding(file)
+  const lines = createInterface({
+    input: createReadStream(file, { encoding: enc }),
+    crlfDelay: Infinity,
+  })
+  for await (const line of lines) yield line
+}
+
+async function encoding(file: string) {
+  const handle = await fs.open(file, "r")
+  const buf = Buffer.alloc(3)
+  const read = await handle.read(buf, 0, 3, 0)
+  await handle.close()
+  if (read.bytesRead >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return "utf16le"
+  if (read.bytesRead >= 2 && buf[0] === 0xfe && buf[1] === 0xff) {
+    throw new Error(`Unsupported corporate tree encoding: UTF-16BE (${file})`)
+  }
+  return "utf8"
+}
+
+async function importLines(input: ImportInput, lines: AsyncIterable<string> | Iterable<string>): Promise<ImportData> {
+  const src = await source(input.source, input.root, input.label)
+  const sql = await db()
+  const now = stamp()
   const stack: string[] = []
   const seen = new Set<string>()
-  const parents = new Set<string>()
-  const raw: Array<Omit<Entry, "type"> & { type?: Entry["type"] }> = []
+  const dirs = new Set<string>()
+  const rows: Entry[] = []
+  let imported = 0
 
-  for (const line of input.content.split(/\n/)) {
-    const item = parseLine(line)
+  const tx = sql.transaction((items: Entry[], parents: string[]) => {
+    bulk(sql, items)
+    const stmt = sql.query("UPDATE corporate_entry SET type = 'directory', ext = '' WHERE source = ? AND path = ?")
+    for (const item of parents) stmt.run(src.id, item)
+  })
+
+  function flush() {
+    if (rows.length === 0 && dirs.size === 0) return
+    tx(rows.splice(0), [...dirs])
+    dirs.clear()
+  }
+
+  for await (const line of lines) {
+    const item = parse(line)
     if (!item) continue
     const name = item.name.replace(/\/$/, "").trim()
     if (!name || name === ".") continue
     while (stack.length > item.depth) stack.pop()
     const parent = stack[item.depth - 1] ?? ""
     const rel = norm(parent ? path.posix.join(parent, name) : name)
+    stack[item.depth] = rel
     if (seen.has(rel)) continue
     seen.add(rel)
+    if (parent) dirs.add(parent)
     const p = parts(rel)
-    raw.push({
-      source: input.source,
+    rows.push({
+      source: src.id,
       path: rel,
       name: p.name,
-      ext: p.ext,
+      ext: item.name.endsWith("/") ? "" : p.ext,
       parent: p.parent,
       depth: p.depth,
-      discovered: input.now,
+      discovered: now,
       stale: false,
       notes: "",
       aliases: "",
-      type: item.name.endsWith("/") ? "directory" : undefined,
+      type: item.name.endsWith("/") ? "directory" : "file",
     })
-    if (parent) parents.add(parent)
-    stack[item.depth] = rel
+    imported += 1
+    if (rows.length >= BATCH) flush()
   }
+  flush()
 
-  return raw.map((item) => ({
-    ...item,
-    type: item.type ?? (parents.has(item.path) || (!item.ext && item.path.includes("/")) ? "directory" : "file"),
-  }))
-}
-
-export async function importTree(input: {
-  source: string
-  root?: string
-  label?: string
-  tree?: string
-  content: string
-}): Promise<ImportData> {
-  const src = await source(input.source, input.root, input.label)
-  const sql = await db()
-  const now = Date.now()
-  const rows = parseTree({ source: src.id, content: input.content, now })
-
-  const tx = sql.transaction((items: Entry[]) => {
+  const done = sql.transaction(() => {
     sql
       .query(
         `INSERT INTO corporate_source (id, label, root, tree, updated, imported)
@@ -461,18 +508,29 @@ export async function importTree(input: {
           imported = excluded.imported`,
       )
       .run(src.id, input.label ?? src.label, src.root, input.tree ?? src.tree ?? null, now, now)
-    sql.query("UPDATE corporate_entry SET stale = 1 WHERE source = ?").run(src.id)
-    bulk(sql, items)
+    sql.query("UPDATE corporate_entry SET stale = 1 WHERE source = ? AND discovered != ?").run(src.id, now)
     syncFts(sql, src.id)
   })
-  tx(rows)
+  done()
 
   const stale = (
     sql.query("SELECT COUNT(*) AS count FROM corporate_entry WHERE source = ? AND stale = 1").get(src.id) as {
       count: number
     }
   ).count
-  return { source: src.id, imported: rows.length, stale }
+  return { source: src.id, imported, stale }
+}
+
+export async function importTree(input: ImportInput & { content: string }): Promise<ImportData> {
+  return importLines(input, textLines(input.content))
+}
+
+export async function importFile(input: ImportInput & { file: string }): Promise<ImportData> {
+  const file = AppFileSystem.normalizePath(path.resolve(expand(input.file)))
+  const stat = await fs.stat(file).catch(() => undefined)
+  if (!stat) throw new Error(`Corporate tree file not found: ${file}`)
+  if (!stat.isFile()) throw new Error(`Corporate tree path is not a file: ${file}`)
+  return importLines({ ...input, tree: input.tree ?? file }, fileLines(file))
 }
 
 export async function status(): Promise<StatusData> {

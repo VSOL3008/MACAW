@@ -5,6 +5,16 @@
       "options": {},
     },
   },
+  "corporate_search": {
+    "sources": [
+      {
+        "id": "tef14",
+        "label": "TEF14",
+        "root": "\\\\JH01FS01.EMEA.BOSCH.COM\\TEF1$\\05_TEF14",
+        "tree": "C:/DIGI/MACAW/opencode/folder_structure_tree.txt",
+      },
+    ],
+  },
   "permission": {
     "edit": {
       "packages/opencode/migration/*": "deny",

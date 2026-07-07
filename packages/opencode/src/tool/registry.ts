@@ -57,6 +57,7 @@ import {
   CorporateReadTool,
   CorporateNoteTool,
   CorporateImportTreeTool,
+  CorporateImportFileTool,
 } from "../corporate/tool"
 import { SkillTool, SkillCreateTool } from "./skill"
 import { TaskCronTool } from "../task/tool"
@@ -204,6 +205,7 @@ export namespace ToolRegistry {
             corp_read: Tool.init(CorporateReadTool),
             corp_note: Tool.init(CorporateNoteTool),
             corp_import_tree: Tool.init(CorporateImportTreeTool),
+            corp_import_file: Tool.init(CorporateImportFileTool),
             skill: Tool.init(SkillTool),
             skill_create: Tool.init(SkillCreateTool),
             task_cron: Tool.init(TaskCronTool),
@@ -245,6 +247,7 @@ export namespace ToolRegistry {
               tool.corp_read,
               tool.corp_note,
               tool.corp_import_tree,
+              tool.corp_import_file,
               tool.skill,
               tool.skill_create,
               tool.task_cron,

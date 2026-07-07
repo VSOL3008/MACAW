@@ -11,6 +11,7 @@ export namespace CorporatePermission {
       corp_read: "allow",
       corp_note: "allow",
       corp_import_tree: "allow",
+      corp_import_file: "allow",
       corp_source: "ask",
       memory_read: "allow",
       memory_search: "allow",

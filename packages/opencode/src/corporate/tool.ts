@@ -178,3 +178,37 @@ export const CorporateImportTreeTool = Tool.define("corp_import_tree", {
     }
   },
 })
+
+export const CorporateImportFileTool = Tool.define("corp_import_file", {
+  description:
+    "Import a local tree command output file into the corporate sidecar mirror without passing large tree content through the agent context.",
+  parameters: z.object({
+    source,
+    root: z.string().optional().describe("Absolute source root represented by the tree output."),
+    label: z.string().optional(),
+    file: z.string().min(1).describe("Local path to a tree command output file."),
+    tree: z.string().optional().describe("Optional path or description of the tree snapshot."),
+  }),
+  async execute(input, ctx) {
+    if (input.root) {
+      await ctx.ask({
+        permission: "corp_source",
+        patterns: [input.root],
+        always: [input.root],
+        metadata: { source: input.source, root: input.root },
+      })
+    }
+    await ctx.ask({
+      permission: "corp_import_file",
+      patterns: [input.file],
+      always: ["*"],
+      metadata: { source: input.source, file: input.file, tree: input.tree },
+    })
+    const data = await Corporate.importFile(input)
+    return {
+      title: input.source,
+      metadata: data,
+      output: `Imported ${data.imported} corporate mirror entries for ${data.source}; ${data.stale} stale entries remain.`,
+    }
+  },
+})

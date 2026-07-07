@@ -175,6 +175,35 @@ export const CorporateRoutes = lazy(() =>
       },
     )
     .post(
+      "/import/file",
+      describeRoute({
+        summary: "Import corporate tree file",
+        description: "Stream a local tree command output file into the corporate sidecar mirror.",
+        operationId: "global.corporate.importFile",
+        responses: {
+          200: {
+            description: "Import result",
+            content: { "application/json": { schema: resolver(ImportSchema) } },
+          },
+          400: {
+            description: "Bad request",
+            content: { "application/json": { schema: resolver(ErrorSchema) } },
+          },
+        },
+      }),
+      validator(
+        "json",
+        z.object({
+          source: z.string().min(1),
+          root: z.string().optional(),
+          label: z.string().optional(),
+          tree: z.string().optional(),
+          file: z.string().min(1),
+        }),
+      ),
+      async (c) => c.json(await Corporate.importFile(c.req.valid("json"))),
+    )
+    .post(
       "/list",
       describeRoute({
         summary: "Refresh one corporate directory",

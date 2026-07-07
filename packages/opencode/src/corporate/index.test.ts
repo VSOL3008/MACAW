@@ -58,6 +58,78 @@ test("handles thousands of tree rows as metadata-only index data", async () => {
   expect(found.items[0]?.path).toBe("target-5999.pdf")
 })
 
+test("streams tree files into the metadata index", async () => {
+  const file = path.join(mem, "stream-tree.txt")
+  const tree = ["."]
+    .concat(Array.from({ length: 3000 }, (_, i) => (i === 2999 ? "|-- target-2999.xlsx" : `|-- file-${i}.pdf`)))
+    .concat(["|-- Alpha", "|   `-- budget-final.csv"])
+    .join("\n")
+  await fs.writeFile(file, tree, "utf8")
+
+  const data = await corp.importFile({
+    source: "stream",
+    root: path.join(root, "missing-stream"),
+    label: "Stream",
+    file,
+  })
+  const byName = await corp.search({ source: "stream", query: "target 2999", limit: 5 })
+  const byExt = await corp.search({ source: "stream", query: "xlsx", limit: 5 })
+  const byDir = await corp.search({ source: "stream", query: "Alpha budget", limit: 5 })
+
+  expect(data.imported).toBe(3002)
+  expect(byName.items[0]?.path).toBe("target-2999.xlsx")
+  expect(byExt.items.some((item) => item.path === "target-2999.xlsx")).toBeTrue()
+  expect(byDir.items.some((item) => item.path === "Alpha/budget-final.csv")).toBeTrue()
+})
+
+test("streams utf16 tree files into the metadata index", async () => {
+  const file = path.join(mem, "stream-tree-utf16.txt")
+  await fs.writeFile(
+    file,
+    Buffer.concat([
+      Buffer.from([0xff, 0xfe]),
+      Buffer.from([".", "|-- Utf16", "|   `-- budget-final.xlsx"].join("\r\n"), "utf16le"),
+    ]),
+  )
+
+  const data = await corp.importFile({
+    source: "utf16",
+    root: path.join(root, "missing-utf16"),
+    label: "UTF16",
+    file,
+  })
+  const found = await corp.search({ source: "utf16", query: "budget final", limit: 5 })
+
+  expect(data.imported).toBe(2)
+  expect(found.items[0]?.path).toBe("Utf16/budget-final.xlsx")
+})
+
+test("file reimport marks missing entries stale", async () => {
+  const file = path.join(mem, "stale-tree.txt")
+  await fs.writeFile(file, [".", "|-- old.txt", "|-- keep.txt"].join("\n"), "utf8")
+  await corp.importFile({ source: "stale", root: path.join(root, "missing-stale"), file })
+
+  await fs.writeFile(file, [".", "|-- keep.txt", "|-- fresh.txt"].join("\n"), "utf8")
+  const data = await corp.importFile({ source: "stale", root: path.join(root, "missing-stale"), file })
+  const old = await corp.search({ source: "stale", query: "old", limit: 5 })
+  const fresh = await corp.search({ source: "stale", query: "fresh", limit: 5 })
+
+  expect(data.imported).toBe(2)
+  expect(data.stale).toBe(1)
+  expect(old.items.length).toBe(0)
+  expect(fresh.items[0]?.path).toBe("fresh.txt")
+})
+
+test("file import rejects missing tree files", async () => {
+  await expect(
+    corp.importFile({
+      source: "missing-file",
+      root: path.join(root, "missing-file"),
+      file: path.join(mem, "missing-tree.txt"),
+    }),
+  ).rejects.toThrow("not found")
+})
+
 test("targeted list refreshes one directory and read extracts capped text", async () => {
   const listed = await corp.list({ source: "shared", path: "Finance", limit: 10 })
   expect(listed.items.map((item) => item.path)).toContain("Finance/ledger.csv")
@@ -82,6 +154,7 @@ test("corporate search permissions allow only corporate and safe memory tools", 
   const rules = CorporatePermission.rules()
   expect(Permission.evaluate("corp_read", "*", rules).action).toBe("allow")
   expect(Permission.evaluate("corp_search", "*", rules).action).toBe("allow")
+  expect(Permission.evaluate("corp_import_file", "*", rules).action).toBe("allow")
   expect(Permission.evaluate("memory_read", "*", rules).action).toBe("allow")
   expect(Permission.evaluate("bash", "*", rules).action).toBe("deny")
   expect(Permission.evaluate("read", "*", rules).action).toBe("deny")

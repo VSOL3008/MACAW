@@ -2705,6 +2705,38 @@ export type GlobalCorporateImportResponses = {
 
 export type GlobalCorporateImportResponse = GlobalCorporateImportResponses[keyof GlobalCorporateImportResponses]
 
+export type GlobalCorporateImportFileData = {
+  body?: {
+    source: string
+    root?: string
+    label?: string
+    tree?: string
+    file: string
+  }
+  path?: never
+  query?: never
+  url: "/global/corporate/import/file"
+}
+
+export type GlobalCorporateImportFileErrors = {
+  /**
+   * Bad request
+   */
+  400: CorporateError
+}
+
+export type GlobalCorporateImportFileError = GlobalCorporateImportFileErrors[keyof GlobalCorporateImportFileErrors]
+
+export type GlobalCorporateImportFileResponses = {
+  /**
+   * Import result
+   */
+  200: CorporateImport
+}
+
+export type GlobalCorporateImportFileResponse =
+  GlobalCorporateImportFileResponses[keyof GlobalCorporateImportFileResponses]
+
 export type GlobalCorporateListData = {
   body?: {
     source: string
