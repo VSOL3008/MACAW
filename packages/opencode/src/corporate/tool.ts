@@ -75,6 +75,8 @@ export const CorporateListTool = Tool.define("corp_list", {
       output: [
         `<source>${data.source}</source>`,
         `<path>${data.path || "."}</path>`,
+        `<mode>${data.mode}</mode>`,
+        data.reason ? `<reason>${data.reason}</reason>` : "",
         `<entries>`,
         data.items.map((item) => `${item.type === "directory" ? "dir " : "file"} ${item.path}`).join("\n"),
         data.truncated ? "\n(results truncated by corporate_search.limits.entries)" : "",
@@ -108,6 +110,8 @@ export const CorporateReadTool = Tool.define("corp_read", {
         `<source>${data.source}</source>`,
         `<path>${data.path}</path>`,
         `<type>${data.type}</type>`,
+        `<available>${data.available}</available>`,
+        data.reason ? `<reason>${data.reason}</reason>` : "",
         `<content>`,
         data.text,
         data.truncated ? "\n(output truncated by corporate_search limits)" : "",

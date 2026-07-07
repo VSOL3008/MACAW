@@ -82,6 +82,8 @@ const ListSchema = z
     path: z.string(),
     items: z.array(EntrySchema),
     truncated: z.boolean(),
+    mode: z.enum(["disk", "index"]),
+    reason: z.string().optional(),
   })
   .meta({ ref: "CorporateList" })
 
@@ -93,6 +95,8 @@ const ReadSchema = z
     text: z.string(),
     truncated: z.boolean(),
     bytes: z.number(),
+    available: z.boolean(),
+    reason: z.string().optional(),
   })
   .meta({ ref: "CorporateRead" })
 

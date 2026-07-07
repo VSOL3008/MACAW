@@ -130,13 +130,105 @@ test("file import rejects missing tree files", async () => {
   ).rejects.toThrow("not found")
 })
 
+test("explicit import root repairs a stale persisted source root", async () => {
+  await corp.importTree({
+    source: "repair",
+    root: path.join(root, "missing-repair"),
+    content: [".", "|-- ghost.txt"].join("\n"),
+  })
+  await corp.importTree({
+    source: "repair",
+    root: path.join(root, "Finance"),
+    content: [".", "|-- budget.txt"].join("\n"),
+  })
+
+  const read = await corp.read({ source: "repair", path: "budget.txt", limit: 10 })
+
+  expect(read.available).toBeTrue()
+  expect(read.text).toContain("Budget alpha")
+})
+
+test("loads corporate sources from local project config without instance context", async () => {
+  const cwd = process.cwd()
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "macaw-corp-project-"))
+  await fs.mkdir(path.join(dir, ".opencode"), { recursive: true })
+  await fs.writeFile(
+    path.join(dir, ".opencode", "opencode.jsonc"),
+    JSON.stringify({
+      corporate_search: {
+        sources: [
+          {
+            id: "local-config",
+            label: "Local Config",
+            root: path.join(root, "Finance"),
+          },
+        ],
+      },
+    }),
+    "utf8",
+  )
+  process.chdir(dir)
+
+  try {
+    await corp.importTree({ source: "local-config", content: [".", "|-- budget.txt"].join("\n") })
+    const read = await corp.read({ source: "local-config", path: "budget.txt", limit: 10 })
+    const status = await corp.status()
+
+    expect(read.available).toBeTrue()
+    expect(read.text).toContain("Budget alpha")
+    expect(status.sources.find((item) => item.id === "local-config")?.root).toBe(path.join(root, "Finance"))
+  } finally {
+    process.chdir(cwd)
+    await fs.rm(dir, { recursive: true, force: true })
+  }
+})
+
 test("targeted list refreshes one directory and read extracts capped text", async () => {
   const listed = await corp.list({ source: "shared", path: "Finance", limit: 10 })
+  expect(listed.mode).toBe("disk")
   expect(listed.items.map((item) => item.path)).toContain("Finance/ledger.csv")
 
   const read = await corp.read({ source: "shared", path: "Finance/budget.txt", limit: 10 })
+  expect(read.available).toBeTrue()
   expect(read.text).toContain("Budget alpha")
   expect(read.truncated).toBeFalse()
+})
+
+test("list falls back to indexed children when the real root is unavailable", async () => {
+  const tree = [".", "|-- Build", "|   `-- Alpha", "|       `-- README.txt"].join("\n")
+  await corp.importTree({ source: "offline", root: path.join(root, "missing-offline"), label: "Offline", content: tree })
+
+  const listed = await corp.list({ source: "offline", path: "Build/Alpha", limit: 10 })
+
+  expect(listed.mode).toBe("index")
+  expect(listed.reason).toContain("unavailable")
+  expect(listed.items.map((item) => item.path)).toContain("Build/Alpha/README.txt")
+})
+
+test("read returns indexed metadata instead of throwing when the real file is unavailable", async () => {
+  const tree = [".", "|-- Build", "|   `-- Alpha", "|       `-- README.txt"].join("\n")
+  await corp.importTree({
+    source: "offline-read",
+    root: path.join(root, "missing-offline-read"),
+    label: "Offline Read",
+    content: tree,
+  })
+
+  const read = await corp.read({ source: "offline-read", path: "Build/Alpha/README.txt" })
+
+  expect(read.available).toBeFalse()
+  expect(read.reason).toContain("unavailable")
+  expect(read.text).toContain("Indexed metadata only")
+  expect(read.text).toContain("offline-read:Build/Alpha/README.txt")
+})
+
+test("read reports unsupported existing files without failing", async () => {
+  await fs.writeFile(path.join(root, "Finance", "archive.bin"), Buffer.from([1, 2, 3, 4]))
+  const read = await corp.read({ source: "shared", path: "Finance/archive.bin" })
+
+  expect(read.available).toBeTrue()
+  expect(read.reason).toBe("unsupported type")
+  expect(read.text).toContain("not supported")
 })
 
 test("rejects paths that escape the configured source root", async () => {

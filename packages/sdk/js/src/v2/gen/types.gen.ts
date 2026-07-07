@@ -1921,6 +1921,8 @@ export type CorporateList = {
   path: string
   items: Array<CorporateEntry>
   truncated: boolean
+  mode: "disk" | "index"
+  reason?: string
 }
 
 export type CorporateRead = {
@@ -1930,6 +1932,8 @@ export type CorporateRead = {
   text: string
   truncated: boolean
   bytes: number
+  available: boolean
+  reason?: string
 }
 
 export type TaskDetail = {

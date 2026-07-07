@@ -4,6 +4,7 @@ import path from "path"
 import { createReadStream, mkdirSync } from "fs"
 import { createInterface } from "readline"
 import { Database } from "bun:sqlite"
+import { parse as parseJsonc } from "jsonc-parser"
 import { Config } from "@/config/config"
 import { AppFileSystem } from "@/filesystem"
 import { Memory } from "@/memory/memory"
@@ -92,6 +93,8 @@ export type ListData = {
   path: string
   items: Entry[]
   truncated: boolean
+  mode: "disk" | "index"
+  reason?: string
 }
 
 export type ReadData = {
@@ -101,6 +104,8 @@ export type ReadData = {
   text: string
   truncated: boolean
   bytes: number
+  available: boolean
+  reason?: string
 }
 
 type Store = {
@@ -144,12 +149,27 @@ type ImportInput = {
   tree?: string
 }
 
+type RawSource = {
+  id?: unknown
+  label?: unknown
+  root?: unknown
+  tree?: unknown
+}
+
+type RawConfig = {
+  corporate_search?: {
+    sources?: RawSource[]
+  }
+}
+
 let store: Store | undefined
 let clock = 0
+let local: { cwd: string; sources: Source[] } | undefined
 
 export function reset() {
   store?.db.close()
   store = undefined
+  local = undefined
 }
 
 function expand(input: string) {
@@ -163,8 +183,18 @@ function cleanRoot(root: string) {
   return AppFileSystem.normalizePath(path.resolve(expand(root)))
 }
 
+function cleanSource(item: RawSource): Source | undefined {
+  if (typeof item.id !== "string" || typeof item.root !== "string") return
+  return {
+    id: item.id,
+    label: typeof item.label === "string" ? item.label : item.id,
+    root: cleanRoot(item.root),
+    tree: typeof item.tree === "string" ? item.tree : undefined,
+  }
+}
+
 function norm(input: string) {
-  return input.split(path.sep).join("/").replace(/^\.\/+/, "").replace(/^\/+/, "")
+  return input.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/^\/+/, "")
 }
 
 function inside(root: string, file: string) {
@@ -176,6 +206,44 @@ function inside(root: string, file: string) {
 function stamp() {
   clock = Math.max(Date.now(), clock + 1)
   return clock
+}
+
+function rel(input = ".") {
+  if (path.isAbsolute(input)) throw new Error("Corporate path must be relative to the configured source root")
+  const next = path.posix.normalize(norm(input) || ".")
+  if (next === ".") return ""
+  if (next === ".." || next.startsWith("../")) throw new Error("Corporate path escapes the configured source root")
+  return next
+}
+
+function lost(err: unknown) {
+  if (!err || typeof err !== "object" || !("code" in err)) return false
+  const code = String((err as { code?: unknown }).code)
+  return code === "ENOENT" || code === "ENOTDIR"
+}
+
+async function localSources() {
+  const cwd = process.cwd()
+  if (local?.cwd === cwd) return local.sources
+  const files: string[] = []
+  for (let dir = cwd; ; dir = path.dirname(dir)) {
+    files.unshift(path.join(dir, ".opencode", "opencode.jsonc"))
+    files.unshift(path.join(dir, ".opencode", "opencode.json"))
+    if (dir === path.dirname(dir)) break
+  }
+  const map = new Map<string, Source>()
+  for (const file of files) {
+    const text = await fs.readFile(file, "utf8").catch(() => undefined)
+    if (!text) continue
+    const parsed = parseJsonc(text, undefined, { allowTrailingComma: true }) as RawConfig | undefined
+    const sources = parsed?.corporate_search?.sources ?? []
+    for (const item of sources) {
+      const src = cleanSource(item)
+      if (src) map.set(src.id, src)
+    }
+  }
+  local = { cwd, sources: [...map.values()] }
+  return local.sources
 }
 
 async function db() {
@@ -252,14 +320,17 @@ function entry(row: Row): Entry {
 async function cfg() {
   const info = await Config.get().catch(() => Config.getGlobal().catch(() => undefined))
   const corp = info?.corporate_search
-  const sources = (corp?.sources ?? []).map((item) => ({
-    id: item.id,
-    label: item.label ?? item.id,
-    root: cleanRoot(item.root),
-    tree: item.tree,
-  }))
+  const map = new Map<string, Source>((await localSources()).map((item) => [item.id, item]))
+  for (const item of corp?.sources ?? []) {
+    map.set(item.id, {
+      id: item.id,
+      label: item.label ?? item.id,
+      root: cleanRoot(item.root),
+      tree: item.tree,
+    })
+  }
   return {
-    sources,
+    sources: [...map.values()],
     limits: {
       results: Math.max(1, Math.min(corp?.limits?.results ?? RESULTS, 250)),
       entries: Math.max(1, Math.min(corp?.limits?.entries ?? ENTRIES, 1000)),
@@ -273,6 +344,13 @@ async function source(id: string, root?: string, label?: string): Promise<Source
   const conf = await cfg()
   const found = conf.sources.find((item) => item.id === id)
   if (found) return found
+  if (root) {
+    return {
+      id,
+      label: label ?? id,
+      root: cleanRoot(root),
+    }
+  }
   const sql = await db()
   const row = sql.query("SELECT id, label, root, tree, updated, imported FROM corporate_source WHERE id = ?").get(id) as
     | SourceRow
@@ -285,20 +363,13 @@ async function source(id: string, root?: string, label?: string): Promise<Source
       tree: row.tree ?? undefined,
     }
   }
-  if (root) {
-    return {
-      id,
-      label: label ?? id,
-      root: cleanRoot(root),
-    }
-  }
   throw new Error(`Corporate source is not configured: ${id}`)
 }
 
 async function safe(src: Source, rel = ".") {
-  if (path.isAbsolute(rel)) throw new Error("Corporate path must be relative to the configured source root")
+  const next = rel === "." ? "" : rel
   const base = await fs.realpath(src.root).then(AppFileSystem.normalizePath)
-  const full = AppFileSystem.normalizePath(path.resolve(base, rel))
+  const full = AppFileSystem.normalizePath(path.resolve(base, next || "."))
   const real = await fs.realpath(full).then(AppFileSystem.normalizePath)
   if (!inside(base, real)) throw new Error("Corporate path escapes the configured source root")
   return {
@@ -539,14 +610,14 @@ export async function status(): Promise<StatusData> {
   const rows = sql.query("SELECT id, label, root, tree, updated, imported FROM corporate_source").all() as SourceRow[]
   const map = new Map<string, SourceRow>(rows.map((row) => [row.id, row]))
   for (const item of conf.sources) {
-    if (map.has(item.id)) continue
+    const row = map.get(item.id)
     map.set(item.id, {
       id: item.id,
       label: item.label,
       root: item.root,
-      tree: item.tree ?? null,
-      updated: 0,
-      imported: null,
+      tree: item.tree ?? row?.tree ?? null,
+      updated: row?.updated ?? 0,
+      imported: row?.imported ?? null,
     })
   }
   const sources = [...map.values()].map((row) => {
@@ -668,18 +739,94 @@ export async function note(input: {
   return entry(row)
 }
 
+function indexed(sql: Database, source: string, parent: string, limit: number, reason: string): ListData {
+  const total = (
+    sql.query("SELECT COUNT(*) AS count FROM corporate_entry WHERE source = ? AND parent = ? AND stale = 0").get(
+      source,
+      parent,
+    ) as { count: number }
+  ).count
+  const rows = sql
+    .query(
+      `SELECT source, path, name, ext, type, parent, depth, size, modified, discovered, stale, notes, aliases
+      FROM corporate_entry
+      WHERE source = ? AND parent = ? AND stale = 0
+      ORDER BY type = 'directory' DESC, name
+      LIMIT ?`,
+    )
+    .all(source, parent, limit) as Row[]
+  return {
+    source,
+    path: parent,
+    items: rows.map(entry),
+    truncated: total > rows.length,
+    mode: "index",
+    reason,
+  }
+}
+
+function unavailable(sql: Database, source: string, path: string, reason: string): ReadData {
+  const row = sql
+    .query(
+      `SELECT source, path, name, ext, type, parent, depth, size, modified, discovered, stale, notes, aliases
+      FROM corporate_entry
+      WHERE source = ? AND path = ? AND stale = 0`,
+    )
+    .get(source, path) as Row | undefined
+  const item = row ? entry(row) : undefined
+  const text = item
+    ? [
+        "Indexed metadata only. No file content was extracted by corp_read.",
+        `Reason: ${reason}`,
+        `Path: ${source}:${item.path}`,
+        `Type: ${item.type}${item.ext ? ` .${item.ext}` : ""}`,
+        item.size === undefined ? undefined : `Size: ${item.size} bytes`,
+        item.modified === undefined ? undefined : `Modified: ${new Date(item.modified).toISOString()}`,
+        item.notes ? `Notes: ${item.notes}` : undefined,
+        item.aliases ? `Aliases: ${item.aliases}` : undefined,
+        item.type === "directory"
+          ? "Use corp_list on this path to inspect indexed children."
+          : "Reconnect or sync the corporate drive, then retry corp_read to extract file content.",
+      ]
+        .filter((line): line is string => !!line)
+        .join("\n")
+    : [
+        "No active corporate mirror entry was found, and the real path is not available from this machine.",
+        `Reason: ${reason}`,
+        `Path: ${source}:${path}`,
+      ].join("\n")
+  return {
+    source,
+    path,
+    type: item?.type === "directory" ? "directory" : item?.ext || "missing",
+    text,
+    truncated: false,
+    bytes: 0,
+    available: false,
+    reason,
+  }
+}
+
 export async function list(input: { source: string; path?: string; limit?: number }): Promise<ListData> {
   const src = await source(input.source)
   const conf = await cfg()
   const limit = Math.max(1, Math.min(input.limit ?? conf.limits.entries, 1000))
-  const resolved = await safe(src, input.path ?? ".")
+  const parent = rel(input.path ?? ".")
   const sql = await db()
+  const resolved = await safe(src, parent).catch((err) => {
+    if (lost(err)) return undefined
+    throw err
+  })
+  if (!resolved) return indexed(sql, src.id, parent, limit, `Real corporate path is unavailable under ${src.root}`)
   const now = Date.now()
-  const parent = resolved.rel
   const rows: Entry[] = []
   let total = 0
 
-  const dir = await fs.opendir(resolved.full)
+  const dir = await fs.opendir(resolved.full).catch((err) => {
+    if (lost(err)) return undefined
+    throw err
+  })
+  if (!dir) return indexed(sql, src.id, parent, limit, `Real corporate directory is unavailable: ${resolved.full}`)
   for await (const item of dir) {
     total += 1
     if (rows.length >= limit) break
@@ -718,6 +865,7 @@ export async function list(input: { source: string; path?: string; limit?: numbe
     path: parent,
     items: rows,
     truncated: total > rows.length,
+    mode: "disk",
   }
 }
 
@@ -747,9 +895,11 @@ async function office(full: string, ext: string, max: number) {
   const wanted = entries
     .filter((item) => {
       if (!item.filename.endsWith(".xml")) return false
-      if (ext === "docx") return item.filename === "word/document.xml"
-      if (ext === "xlsx") return item.filename.startsWith("xl/sharedStrings") || item.filename.startsWith("xl/worksheets/")
-      if (ext === "pptx") return item.filename.startsWith("ppt/slides/")
+      if (["docx", "docm"].includes(ext)) return item.filename === "word/document.xml"
+      if (["xlsx", "xlsm"].includes(ext)) {
+        return item.filename.startsWith("xl/sharedStrings") || item.filename.startsWith("xl/worksheets/")
+      }
+      if (["pptx", "pptm"].includes(ext)) return item.filename.startsWith("ppt/slides/")
       return false
     })
     .sort((a, b) => a.filename.localeCompare(b.filename))
@@ -772,15 +922,24 @@ export async function read(input: {
 }): Promise<ReadData> {
   const src = await source(input.source)
   const conf = await cfg()
-  const resolved = await safe(src, input.path)
-  const stat = await fs.stat(resolved.full)
-  if (stat.isDirectory()) throw new Error("Use corp_list for directories")
-  const rel = norm(resolved.rel)
-  const p = parts(rel)
+  const next = rel(input.path)
   const sql = await db()
+  const resolved = await safe(src, next).catch((err) => {
+    if (lost(err)) return undefined
+    throw err
+  })
+  if (!resolved) return unavailable(sql, src.id, next, `Real corporate path is unavailable under ${src.root}`)
+  const stat = await fs.stat(resolved.full).catch((err) => {
+    if (lost(err)) return undefined
+    throw err
+  })
+  if (!stat) return unavailable(sql, src.id, next, `Real corporate file is unavailable: ${resolved.full}`)
+  const file = norm(resolved.rel)
+  if (stat.isDirectory()) return unavailable(sql, src.id, file, "Path is a directory; use corp_list to inspect it.")
+  const p = parts(file)
   upsert(sql, {
     source: src.id,
-    path: rel,
+    path: file,
     name: p.name,
     ext: p.ext,
     type: "file",
@@ -797,36 +956,66 @@ export async function read(input: {
   if (stat.size > conf.limits.bytes) {
     return {
       source: src.id,
-      path: rel,
+      path: file,
       type: p.ext || "file",
       text: `File is ${stat.size} bytes, above the configured corporate read cap of ${conf.limits.bytes} bytes.`,
       truncated: true,
       bytes: 0,
+      available: true,
+      reason: "size cap",
     }
   }
 
   if (p.ext === "pdf") {
     const text = await extractPdfText(new Uint8Array(await Bun.file(resolved.full).arrayBuffer()))
     const next = cap(text, conf.limits.text)
-    return { source: src.id, path: rel, type: "pdf", text: next.text, truncated: next.truncated, bytes: stat.size }
+    return {
+      source: src.id,
+      path: file,
+      type: "pdf",
+      text: next.text,
+      truncated: next.truncated,
+      bytes: stat.size,
+      available: true,
+    }
   }
 
-  if (["docx", "xlsx", "pptx"].includes(p.ext)) {
+  if (["docx", "docm", "xlsx", "xlsm", "pptx", "pptm"].includes(p.ext)) {
     const next = await office(resolved.full, p.ext, conf.limits.text)
-    return { source: src.id, path: rel, type: p.ext, text: next.text, truncated: next.truncated, bytes: stat.size }
+    return {
+      source: src.id,
+      path: file,
+      type: p.ext,
+      text: next.text,
+      truncated: next.truncated,
+      bytes: stat.size,
+      available: true,
+    }
   }
 
-  if (!textish(p.ext)) throw new Error(`Unsupported corporate file type: ${p.ext || "unknown"}`)
+  if (!textish(p.ext)) {
+    return {
+      source: src.id,
+      path: file,
+      type: p.ext || "file",
+      text: `File exists, but .${p.ext || "unknown"} extraction is not supported by corp_read. Use the real corporate drive or add a supported extractor for this file type.`,
+      truncated: false,
+      bytes: stat.size,
+      available: true,
+      reason: "unsupported type",
+    }
+  }
 
   const raw = await Bun.file(resolved.full).slice(0, conf.limits.bytes).text()
   const clipped = cap(raw, conf.limits.text)
   const view = lines(clipped.text, Math.max(1, input.offset ?? 1), Math.max(1, Math.min(input.limit ?? 200, 2000)))
   return {
     source: src.id,
-    path: rel,
+    path: file,
     type: p.ext || "text",
     text: view.text,
     truncated: clipped.truncated || view.truncated || stat.size > conf.limits.bytes,
     bytes: Math.min(stat.size, conf.limits.bytes),
+    available: true,
   }
 }

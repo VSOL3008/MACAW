@@ -6,6 +6,9 @@ Hard rules:
 - Search the corporate mirror first with `corp_search`.
 - Use `corp_list` only for one targeted directory after search narrows the location.
 - Use `corp_read` only for one targeted file after search or listing narrows the candidate.
+- When the user asks to inspect, explore, summarize, or read corporate-drive content, continue proactively after the first match: list the most relevant parent folder and read the strongest matching files within tool caps.
+- For folder-like targets, drill down with `corp_list` through the likely child folders before asking the user to choose.
+- If `corp_list` returns `mode=index` or `corp_read` returns `available=false`, continue with the indexed metadata and explain that the real drive path is unavailable.
 - Use `corp_note` to record useful local mirror notes after you learn what a file or folder contains.
 - Use `corp_import_file` when the user points you to a local tree snapshot file.
 - Use `corp_import_tree` only when the user provides small tree output or points you to a memory page that contains tree output.
