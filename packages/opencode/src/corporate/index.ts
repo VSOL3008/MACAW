@@ -162,14 +162,24 @@ type RawConfig = {
   }
 }
 
+type Real = {
+  full: string
+  rel: string
+  root: string
+}
+
 let store: Store | undefined
 let clock = 0
 let local: { cwd: string; sources: Source[] } | undefined
+let roots = new Map<string, string>()
+let reals = new Map<string, Real>()
 
 export function reset() {
   store?.db.close()
   store = undefined
   local = undefined
+  roots = new Map()
+  reals = new Map()
 }
 
 function expand(input: string) {
@@ -281,6 +291,7 @@ async function db() {
     );
     CREATE INDEX IF NOT EXISTS corporate_entry_source_idx ON corporate_entry (source);
     CREATE INDEX IF NOT EXISTS corporate_entry_parent_idx ON corporate_entry (source, parent);
+    CREATE INDEX IF NOT EXISTS corporate_entry_parent_stale_idx ON corporate_entry (source, parent, stale, type, name);
     CREATE INDEX IF NOT EXISTS corporate_entry_name_idx ON corporate_entry (source, name);
     CREATE INDEX IF NOT EXISTS corporate_entry_ext_idx ON corporate_entry (source, ext);
     CREATE INDEX IF NOT EXISTS corporate_entry_stale_idx ON corporate_entry (source, stale);
@@ -366,17 +377,30 @@ async function source(id: string, root?: string, label?: string): Promise<Source
   throw new Error(`Corporate source is not configured: ${id}`)
 }
 
-async function safe(src: Source, rel = ".") {
+async function base(src: Source) {
+  const hit = roots.get(src.root)
+  if (hit) return hit
+  const next = await fs.realpath(src.root).then(AppFileSystem.normalizePath)
+  roots.set(src.root, next)
+  return next
+}
+
+async function safe(src: Source, rel = "."): Promise<Real> {
   const next = rel === "." ? "" : rel
-  const base = await fs.realpath(src.root).then(AppFileSystem.normalizePath)
-  const full = AppFileSystem.normalizePath(path.resolve(base, next || "."))
+  const key = `${src.root}\0${next}`
+  const hit = reals.get(key)
+  if (hit) return hit
+  const root = await base(src)
+  const full = AppFileSystem.normalizePath(path.resolve(root, next || "."))
   const real = await fs.realpath(full).then(AppFileSystem.normalizePath)
-  if (!inside(base, real)) throw new Error("Corporate path escapes the configured source root")
-  return {
+  if (!inside(root, real)) throw new Error("Corporate path escapes the configured source root")
+  const out = {
     full: real,
-    rel: norm(path.relative(base, real)),
-    root: base,
+    rel: norm(path.relative(root, real)),
+    root,
   }
+  reals.set(key, out)
+  return out
 }
 
 function parts(rel: string) {
@@ -740,26 +764,20 @@ export async function note(input: {
 }
 
 function indexed(sql: Database, source: string, parent: string, limit: number, reason: string): ListData {
-  const total = (
-    sql.query("SELECT COUNT(*) AS count FROM corporate_entry WHERE source = ? AND parent = ? AND stale = 0").get(
-      source,
-      parent,
-    ) as { count: number }
-  ).count
   const rows = sql
     .query(
       `SELECT source, path, name, ext, type, parent, depth, size, modified, discovered, stale, notes, aliases
       FROM corporate_entry
       WHERE source = ? AND parent = ? AND stale = 0
-      ORDER BY type = 'directory' DESC, name
+      ORDER BY type, name
       LIMIT ?`,
     )
-    .all(source, parent, limit) as Row[]
+    .all(source, parent, limit + 1) as Row[]
   return {
     source,
     path: parent,
-    items: rows.map(entry),
-    truncated: total > rows.length,
+    items: rows.slice(0, limit).map(entry),
+    truncated: rows.length > limit,
     mode: "index",
     reason,
   }
@@ -807,12 +825,16 @@ function unavailable(sql: Database, source: string, path: string, reason: string
   }
 }
 
-export async function list(input: { source: string; path?: string; limit?: number }): Promise<ListData> {
+export async function list(input: { source: string; path?: string; limit?: number; refresh?: boolean }): Promise<ListData> {
   const src = await source(input.source)
   const conf = await cfg()
   const limit = Math.max(1, Math.min(input.limit ?? conf.limits.entries, 1000))
   const parent = rel(input.path ?? ".")
   const sql = await db()
+  if (!input.refresh) {
+    const cached = indexed(sql, src.id, parent, limit, "Using indexed mirror. Pass refresh=true to refresh this real corporate directory.")
+    if (cached.items.length > 0 || cached.truncated) return cached
+  }
   const resolved = await safe(src, parent).catch((err) => {
     if (lost(err)) return undefined
     throw err
@@ -830,23 +852,16 @@ export async function list(input: { source: string; path?: string; limit?: numbe
   for await (const item of dir) {
     total += 1
     if (rows.length >= limit) break
-    const full = path.join(resolved.full, item.name)
-    const real = await fs.realpath(full).then(AppFileSystem.normalizePath).catch(() => undefined)
-    if (!real || !inside(resolved.root, real)) continue
-    const stat = await fs.stat(real).catch(() => undefined)
-    if (!stat) continue
-    const rel = norm(path.relative(resolved.root, real))
-    const p = parts(rel)
+    const child = norm(parent ? path.posix.join(parent, item.name) : item.name)
+    const p = parts(child)
     rows.push({
       source: src.id,
-      path: rel,
+      path: child,
       name: p.name,
       ext: p.ext,
-      type: stat.isDirectory() ? "directory" : "file",
+      type: item.isDirectory() ? "directory" : "file",
       parent: p.parent,
       depth: p.depth,
-      size: stat.isFile() ? stat.size : undefined,
-      modified: stat.mtimeMs,
       discovered: now,
       stale: false,
       notes: "",

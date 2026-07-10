@@ -305,6 +305,79 @@ function title(session: Session) {
   return session.title || "Untitled session"
 }
 
+function createStick() {
+  let view: HTMLDivElement | undefined
+  let body: HTMLDivElement | undefined
+  let obs: ResizeObserver | undefined
+  let frame: number | undefined
+  let stuck = true
+  let force = false
+
+  const clear = () => {
+    obs?.disconnect()
+    obs = undefined
+    view = undefined
+    body = undefined
+    force = false
+    stuck = true
+    if (frame === undefined) return
+    cancelAnimationFrame(frame)
+    frame = undefined
+  }
+
+  const bottom = (el: HTMLDivElement) => el.scrollHeight - el.clientHeight - el.scrollTop <= 24
+
+  const run = () => {
+    frame = undefined
+    const el = view
+    const next = force
+    force = false
+    if (!el) return
+    if (!next && !stuck) return
+    el.scrollTop = el.scrollHeight
+  }
+
+  const queue = (next = false) => {
+    force = force || next
+    if (frame !== undefined) return
+    frame = requestAnimationFrame(run)
+  }
+
+  const bind = () => {
+    obs?.disconnect()
+    if (!view || !body) {
+      obs = undefined
+      return
+    }
+    obs = new ResizeObserver(() => queue())
+    obs.observe(view)
+    obs.observe(body)
+  }
+
+  onCleanup(clear)
+
+  return {
+    body: (el: HTMLDivElement | undefined) => {
+      body = el
+      bind()
+      if (el) queue(true)
+    },
+    clear,
+    follow: () => {
+      stuck = true
+      queue(true)
+    },
+    scroll: (event: globalThis.Event & { currentTarget: HTMLDivElement }) => {
+      stuck = bottom(event.currentTarget)
+    },
+    view: (el: HTMLDivElement | undefined) => {
+      view = el
+      bind()
+      if (el) queue(true)
+    },
+  }
+}
+
 export function MacawApp(props: { server: ServerConnection.Any }) {
   const cmd = useCommand()
   const platform = usePlatform()
@@ -428,6 +501,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     `${steps().length} steps`,
     `${usage().size} tools`,
   ])
+  const stick = createStick()
 
   async function loadTools(value = state.host, dir = state.dir) {
     if (!dir || !value) return
@@ -1328,6 +1402,16 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     saveCachedSessions(props.server, state.sessions)
   })
 
+  createEffect(() => {
+    if (!state.current) return
+    stick.follow()
+  })
+
+  createEffect(() => {
+    if (state.current && state.messages.length > 0) return
+    stick.clear()
+  })
+
   const examples = [
     "Macaw initiation",
     "Open Notepad and write a summary of clipboard contents",
@@ -1967,97 +2051,99 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
               </div>
             }
           >
-            <div class="macaw-thread">
-              <For each={state.messages}>
-                {(row) => (
-                  <div class={`macaw-turn ${row.info.role}`}>
-                    <div class="macaw-bubble">
-                      <div class="macaw-turn-head">
-                        <span>{row.info.role === "user" ? "You" : "MACAW"}</span>
-                        <span>{formatTime(row.info.time.created)}</span>
-                      </div>
-                      <Show when={row.info.role === "assistant" && rowReasoningParts(row).length > 0}>
-                        <Reasoning row={row} />
-                      </Show>
-                      <Show when={rowImages(row).length > 0 || rowFiles(row).length > 0}>
-                        <div class="macaw-attached">
-                          <For each={rowImages(row)}>
-                            {(item) => (
-                              <a
-                                class="macaw-attached-image"
-                                href={item.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                title={item.filename ?? "image"}
-                              >
-                                <img src={item.url} alt={item.filename ?? "attachment"} />
-                              </a>
-                            )}
-                          </For>
-                          <For each={rowFiles(row)}>
-                            {(item) => (
-                              <a
-                                class="macaw-attached-file"
-                                href={item.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                download={item.filename ?? "file"}
-                                title={item.filename ?? item.mime}
-                              >
-                                <span class="macaw-attached-icon" aria-hidden="true">FILE</span>
-                                <span class="macaw-attached-meta">
-                                  <span class="macaw-attached-name">{item.filename ?? "file"}</span>
-                                  <span class="macaw-attached-mime">{item.mime}</span>
-                                </span>
-                              </a>
-                            )}
-                          </For>
+            <div class="macaw-thread" ref={stick.view} onScroll={stick.scroll}>
+              <div class="macaw-thread-body" ref={stick.body}>
+                <For each={state.messages}>
+                  {(row) => (
+                    <div class={`macaw-turn ${row.info.role}`}>
+                      <div class="macaw-bubble">
+                        <div class="macaw-turn-head">
+                          <span>{row.info.role === "user" ? "You" : "MACAW"}</span>
+                          <span>{formatTime(row.info.time.created)}</span>
                         </div>
-                      </Show>
-                      <Show when={rowText(row)}>
-                        <Show
-                          when={row.info.role === "assistant"}
-                          fallback={<pre class="macaw-text">{rowText(row)}</pre>}
-                        >
-                          <Markdown text={rowText(row)} class="macaw-markdown" />
+                        <Show when={row.info.role === "assistant" && rowReasoningParts(row).length > 0}>
+                          <Reasoning row={row} />
                         </Show>
-                      </Show>
-                      <Show when={rowOtherTools(row).length > 0}>
-                        <div class="macaw-inline-tools">
-                          <For each={rowOtherTools(row)}>
-                            {(item) => (
-                              <div class={`macaw-inline-tool ${item.state.status}`}>
-                                <span>{item.tool}</span>
-                                <span>{item.state.status}</span>
-                              </div>
-                            )}
-                          </For>
+                        <Show when={rowImages(row).length > 0 || rowFiles(row).length > 0}>
+                          <div class="macaw-attached">
+                            <For each={rowImages(row)}>
+                              {(item) => (
+                                <a
+                                  class="macaw-attached-image"
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title={item.filename ?? "image"}
+                                >
+                                  <img src={item.url} alt={item.filename ?? "attachment"} />
+                                </a>
+                              )}
+                            </For>
+                            <For each={rowFiles(row)}>
+                              {(item) => (
+                                <a
+                                  class="macaw-attached-file"
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  download={item.filename ?? "file"}
+                                  title={item.filename ?? item.mime}
+                                >
+                                  <span class="macaw-attached-icon" aria-hidden="true">FILE</span>
+                                  <span class="macaw-attached-meta">
+                                    <span class="macaw-attached-name">{item.filename ?? "file"}</span>
+                                    <span class="macaw-attached-mime">{item.mime}</span>
+                                  </span>
+                                </a>
+                              )}
+                            </For>
+                          </div>
+                        </Show>
+                        <Show when={rowText(row)}>
+                          <Show
+                            when={row.info.role === "assistant"}
+                            fallback={<pre class="macaw-text">{rowText(row)}</pre>}
+                          >
+                            <Markdown text={rowText(row)} class="macaw-markdown" />
+                          </Show>
+                        </Show>
+                        <Show when={rowOtherTools(row).length > 0}>
+                          <div class="macaw-inline-tools">
+                            <For each={rowOtherTools(row)}>
+                              {(item) => (
+                                <div class={`macaw-inline-tool ${item.state.status}`}>
+                                  <span>{item.tool}</span>
+                                  <span>{item.state.status}</span>
+                                </div>
+                              )}
+                            </For>
+                          </div>
+                        </Show>
+                        <For each={rowShellTools(row)}>{(part) => <ShellToolCard part={part} />}</For>
+                        <For each={rowTaskTools(row)}>{(part) => <SubagentCard part={part} />}</For>
+                      </div>
+                    </div>
+                  )}
+                </For>
+                <Show when={thinking()}>
+                  <div class="macaw-turn assistant">
+                    <div class="macaw-bubble macaw-thinking">
+                      <div class="macaw-turn-head">
+                        <span>MACAW</span>
+                        <span>{pretty(currentStatus())}</span>
+                      </div>
+                      <div class="macaw-thinking-indicator" aria-label="Thinking">
+                        <span class="macaw-reasoning-label macaw-reasoning-live">Thinking</span>
+                        <div class="macaw-dots">
+                          <span />
+                          <span />
+                          <span />
                         </div>
-                      </Show>
-                      <For each={rowShellTools(row)}>{(part) => <ShellToolCard part={part} />}</For>
-                      <For each={rowTaskTools(row)}>{(part) => <SubagentCard part={part} />}</For>
-                    </div>
-                  </div>
-                )}
-              </For>
-              <Show when={thinking()}>
-                <div class="macaw-turn assistant">
-                  <div class="macaw-bubble macaw-thinking">
-                    <div class="macaw-turn-head">
-                      <span>MACAW</span>
-                      <span>{pretty(currentStatus())}</span>
-                    </div>
-                    <div class="macaw-thinking-indicator" aria-label="Thinking">
-                      <span class="macaw-reasoning-label macaw-reasoning-live">Thinking</span>
-                      <div class="macaw-dots">
-                        <span />
-                        <span />
-                        <span />
                       </div>
                     </div>
                   </div>
-                </div>
-              </Show>
+                </Show>
+              </div>
             </div>
           </Show>
         </div>
@@ -2127,7 +2213,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
             <option value="build">Normal</option>
             <option value="file_shell">File &amp; Shell</option>
             <option value="zero_trust">Zero Trust</option>
-            <option value="corporate_search">Corporate Search</option>
+            <option value="corporate_search">TEF Search</option>
           </select>
           <button type="button" class="macaw-attach" onClick={pickFiles} aria-label="Attach files" title="Attach files">
             +

@@ -535,7 +535,7 @@ export namespace Config {
           }),
         )
         .optional()
-        .describe("Read-only shared-drive roots available to Corporate Search mode."),
+        .describe("Read-only shared-drive roots available to TEF Search mode."),
       limits: z
         .object({
           results: z.number().int().positive().optional(),
@@ -544,7 +544,7 @@ export namespace Config {
           text: z.number().int().positive().optional(),
         })
         .optional()
-        .describe("Caps for corporate search result batches, directory entries, read bytes, and extracted text."),
+        .describe("Caps for TEF Search result batches, directory entries, read bytes, and extracted text."),
     })
     .optional()
     .meta({ ref: "CorporateSearchConfig" })

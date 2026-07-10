@@ -16,6 +16,8 @@ export namespace CorporatePermission {
       memory_read: "allow",
       memory_search: "allow",
       memory_list: "allow",
+      memory_write: "allow",
+      memory_append: "allow",
     })
   }
 }

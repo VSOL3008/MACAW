@@ -410,7 +410,7 @@ export class Memory extends HeyApiClient {
 
 export class Corporate extends HeyApiClient {
   /**
-   * Corporate search index status
+   * TEF Search index status
    *
    * Return corporate mirror source counts, index location, and limits.
    */
@@ -422,7 +422,7 @@ export class Corporate extends HeyApiClient {
   }
 
   /**
-   * Corporate mirror search
+   * TEF Search mirror search
    *
    * Search the metadata-only shared-drive mirror without scanning the real drive.
    */
@@ -548,15 +548,16 @@ export class Corporate extends HeyApiClient {
   }
 
   /**
-   * Refresh one corporate directory
+   * List one corporate directory
    *
-   * Read-only list for one allowlisted source directory and update only that directory in the mirror.
+   * Read-only list for one allowlisted source directory. Uses indexed metadata by default; refresh=true updates one real directory in the mirror.
    */
   public list<ThrowOnError extends boolean = false>(
     parameters?: {
       source?: string
       path?: string
       limit?: number
+      refresh?: boolean
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -568,6 +569,7 @@ export class Corporate extends HeyApiClient {
             { in: "body", key: "source" },
             { in: "body", key: "path" },
             { in: "body", key: "limit" },
+            { in: "body", key: "refresh" },
           ],
         },
       ],

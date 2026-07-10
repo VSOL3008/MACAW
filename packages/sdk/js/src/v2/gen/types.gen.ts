@@ -1252,7 +1252,7 @@ export type ServerConfig = {
 
 export type CorporateSearchConfig = {
   /**
-   * Read-only shared-drive roots available to Corporate Search mode.
+   * Read-only shared-drive roots available to TEF Search mode.
    */
   sources?: Array<{
     id: string
@@ -1261,7 +1261,7 @@ export type CorporateSearchConfig = {
     tree?: string
   }>
   /**
-   * Caps for corporate search result batches, directory entries, read bytes, and extracted text.
+   * Caps for TEF Search result batches, directory entries, read bytes, and extracted text.
    */
   limits?: {
     results?: number
@@ -2649,7 +2649,7 @@ export type GlobalCorporateStatusData = {
 
 export type GlobalCorporateStatusResponses = {
   /**
-   * Corporate status
+   * TEF Search status
    */
   200: CorporateStatus
 }
@@ -2746,6 +2746,7 @@ export type GlobalCorporateListData = {
     source: string
     path?: string
     limit?: number
+    refresh?: boolean
   }
   path?: never
   query?: never

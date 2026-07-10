@@ -107,12 +107,12 @@ export const CorporateRoutes = lazy(() =>
     .get(
       "/status",
       describeRoute({
-        summary: "Corporate search index status",
+        summary: "TEF Search index status",
         description: "Return corporate mirror source counts, index location, and limits.",
         operationId: "global.corporate.status",
         responses: {
           200: {
-            description: "Corporate status",
+            description: "TEF Search status",
             content: { "application/json": { schema: resolver(StatusSchema) } },
           },
         },
@@ -122,7 +122,7 @@ export const CorporateRoutes = lazy(() =>
     .get(
       "/search",
       describeRoute({
-        summary: "Corporate mirror search",
+        summary: "TEF Search mirror search",
         description: "Search the metadata-only shared-drive mirror without scanning the real drive.",
         operationId: "global.corporate.search",
         responses: {
@@ -210,8 +210,8 @@ export const CorporateRoutes = lazy(() =>
     .post(
       "/list",
       describeRoute({
-        summary: "Refresh one corporate directory",
-        description: "Read-only list for one allowlisted source directory and update only that directory in the mirror.",
+        summary: "List one corporate directory",
+        description: "Read-only list for one allowlisted source directory. Uses indexed metadata by default; refresh=true updates one real directory in the mirror.",
         operationId: "global.corporate.list",
         responses: {
           200: {
@@ -226,6 +226,7 @@ export const CorporateRoutes = lazy(() =>
           source: z.string().min(1),
           path: z.string().optional(),
           limit: z.number().int().positive().max(1000).optional(),
+          refresh: z.boolean().optional(),
         }),
       ),
       async (c) => c.json(await Corporate.list(c.req.valid("json"))),

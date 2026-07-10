@@ -183,10 +183,15 @@ test("loads corporate sources from local project config without instance context
   }
 })
 
-test("targeted list refreshes one directory and read extracts capped text", async () => {
+test("targeted list uses indexed children by default and refreshes on request", async () => {
   const listed = await corp.list({ source: "shared", path: "Finance", limit: 10 })
-  expect(listed.mode).toBe("disk")
+  expect(listed.mode).toBe("index")
+  expect(listed.reason).toContain("indexed")
   expect(listed.items.map((item) => item.path)).toContain("Finance/ledger.csv")
+
+  const refreshed = await corp.list({ source: "shared", path: "Finance", limit: 10, refresh: true })
+  expect(refreshed.mode).toBe("disk")
+  expect(refreshed.items.map((item) => item.path)).toContain("Finance/ledger.csv")
 
   const read = await corp.read({ source: "shared", path: "Finance/budget.txt", limit: 10 })
   expect(read.available).toBeTrue()
@@ -201,8 +206,12 @@ test("list falls back to indexed children when the real root is unavailable", as
   const listed = await corp.list({ source: "offline", path: "Build/Alpha", limit: 10 })
 
   expect(listed.mode).toBe("index")
-  expect(listed.reason).toContain("unavailable")
+  expect(listed.reason).toContain("indexed")
   expect(listed.items.map((item) => item.path)).toContain("Build/Alpha/README.txt")
+
+  const refreshed = await corp.list({ source: "offline", path: "Build/Alpha", limit: 10, refresh: true })
+  expect(refreshed.mode).toBe("index")
+  expect(refreshed.reason).toContain("unavailable")
 })
 
 test("read returns indexed metadata instead of throwing when the real file is unavailable", async () => {
@@ -242,14 +251,15 @@ test("agent notes become searchable aliases in the local mirror", async () => {
   expect(found.items.some((item) => item.path === "HR/policy.txt")).toBeTrue()
 })
 
-test("corporate search permissions allow only corporate and safe memory tools", async () => {
+test("TEF Search permissions allow only corporate and safe memory tools", async () => {
   const rules = CorporatePermission.rules()
   expect(Permission.evaluate("corp_read", "*", rules).action).toBe("allow")
   expect(Permission.evaluate("corp_search", "*", rules).action).toBe("allow")
   expect(Permission.evaluate("corp_import_file", "*", rules).action).toBe("allow")
   expect(Permission.evaluate("memory_read", "*", rules).action).toBe("allow")
+  expect(Permission.evaluate("memory_write", "*", rules).action).toBe("allow")
+  expect(Permission.evaluate("memory_append", "*", rules).action).toBe("allow")
   expect(Permission.evaluate("bash", "*", rules).action).toBe("deny")
   expect(Permission.evaluate("read", "*", rules).action).toBe("deny")
   expect(Permission.evaluate("edit", "*", rules).action).toBe("deny")
-  expect(Permission.evaluate("memory_write", "*", rules).action).toBe("deny")
 })

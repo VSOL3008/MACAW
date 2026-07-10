@@ -7,13 +7,13 @@ const source = z.string().min(1).describe("Corporate source id from corporate_se
 const rel = z.string().min(1).describe("Path relative to the corporate source root. Absolute paths and '..' are rejected.")
 
 export const CorporateStatusTool = Tool.define("corp_status", {
-  description: "Show corporate search source counts, sidecar index location, limits, and stale-entry status.",
+  description: "Show TEF Search source counts, sidecar index location, limits, and stale-entry status.",
   parameters: z.object({}),
   async execute(_input, ctx) {
     await ctx.ask({ permission: "corp_status", patterns: ["*"], always: ["*"], metadata: {} })
     const data = await Corporate.status()
     return {
-      title: "corporate search",
+      title: "TEF Search",
       metadata: data,
       output: [
         `<index>${data.root}</index>`,
@@ -55,11 +55,12 @@ export const CorporateSearchTool = Tool.define("corp_search", {
 
 export const CorporateListTool = Tool.define("corp_list", {
   description:
-    "List one directory under an allowlisted corporate source, read-only, and refresh only that directory in the mirror.",
+    "List one directory under an allowlisted corporate source. Uses the indexed mirror first for speed; set refresh=true for a slower live directory refresh.",
   parameters: z.object({
     source,
     path: z.string().optional().describe("Relative directory path. Defaults to the source root."),
     limit: z.number().int().positive().max(1000).optional(),
+    refresh: z.boolean().optional().describe("When true, read the real corporate directory and refresh this mirror branch."),
   }),
   async execute(input, ctx) {
     await ctx.ask({

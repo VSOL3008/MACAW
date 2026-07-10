@@ -425,7 +425,12 @@
   }
 
   .macaw-thread {
+    display: block;
+  }
+
+  .macaw-thread-body {
     display: flex;
+    min-height: 100%;
     flex-direction: column;
     gap: 1rem;
   }
@@ -2871,7 +2876,7 @@
     color: #1d4ed8;
   }
 
-  .macaw-thread {
+  .macaw-thread-body {
     gap: 0.75rem;
   }
 
