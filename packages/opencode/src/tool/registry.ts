@@ -49,6 +49,7 @@ import { UIActTool } from "./ui_act"
 import { PowerShellTool } from "./powershell"
 import { OutlookTool } from "./outlook"
 import { ExcelTool } from "./excel"
+import { Tef1ReportTool } from "./tef1"
 import { MemoryReadTool, MemoryWriteTool, MemoryAppendTool, MemoryListTool, MemorySearchTool } from "../memory/tool"
 import {
   CorporateStatusTool,
@@ -194,6 +195,7 @@ export namespace ToolRegistry {
             powershell: Tool.init(PowerShellTool),
             outlook: Tool.init(OutlookTool),
             excel: Tool.init(ExcelTool),
+            tef1_report: Tool.init(Tef1ReportTool),
             memory_read: Tool.init(MemoryReadTool),
             memory_write: Tool.init(MemoryWriteTool),
             memory_append: Tool.init(MemoryAppendTool),
@@ -236,6 +238,7 @@ export namespace ToolRegistry {
               tool.powershell,
               tool.outlook,
               tool.excel,
+              tool.tef1_report,
               tool.memory_read,
               tool.memory_write,
               tool.memory_append,

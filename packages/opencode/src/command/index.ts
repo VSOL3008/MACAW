@@ -10,6 +10,7 @@ import { Skill } from "../skill"
 import { Log } from "../util/log"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
+import PROMPT_TEF1_REPORT from "./template/tef1-report.txt"
 
 export namespace Command {
   const log = Log.create({ service: "command" })
@@ -63,6 +64,7 @@ export namespace Command {
   export const Default = {
     INIT: "init",
     REVIEW: "review",
+    TEF1_REPORT: "tef1-report",
   } as const
 
   export interface Interface {
@@ -101,6 +103,15 @@ export namespace Command {
           },
           subtask: true,
           hints: hints(PROMPT_REVIEW),
+        }
+        commands[Default.TEF1_REPORT] = {
+          name: Default.TEF1_REPORT,
+          description: "create an editable TEF1 report from provided context and evidence",
+          source: "command",
+          get template() {
+            return PROMPT_TEF1_REPORT
+          },
+          hints: hints(PROMPT_TEF1_REPORT),
         }
 
         for (const [name, command] of Object.entries(cfg.command ?? {})) {

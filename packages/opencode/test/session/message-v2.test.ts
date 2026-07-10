@@ -403,6 +403,82 @@ describe("session.message-v2.toModelMessage", () => {
     ])
   })
 
+  test("does not send non-media tool attachments back to the model", async () => {
+    const userID = "m-user"
+    const assistantID = "m-assistant"
+
+    const input: MessageV2.WithParts[] = [
+      {
+        info: userInfo(userID),
+        parts: [
+          {
+            ...basePart(userID, "u1"),
+            type: "text",
+            text: "run tool",
+          },
+        ] as MessageV2.Part[],
+      },
+      {
+        info: assistantInfo(assistantID, userID),
+        parts: [
+          {
+            ...basePart(assistantID, "a1"),
+            type: "tool",
+            callID: "call-1",
+            tool: "tef1_report",
+            state: {
+              status: "completed",
+              input: { output_path: "report.pptx" },
+              output: "Generated TEF1 report: report.pptx",
+              title: "report.pptx",
+              metadata: {},
+              time: { start: 0, end: 1 },
+              attachments: [
+                {
+                  ...basePart(assistantID, "file-1"),
+                  type: "file",
+                  mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                  filename: "report.pptx",
+                  url: "data:application/vnd.openxmlformats-officedocument.presentationml.presentation;base64,UEsDBAo=",
+                },
+              ],
+            },
+          },
+        ] as MessageV2.Part[],
+      },
+    ]
+
+    expect(await MessageV2.toModelMessages(input, model)).toStrictEqual([
+      {
+        role: "user",
+        content: [{ type: "text", text: "run tool" }],
+      },
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool-call",
+            toolCallId: "call-1",
+            toolName: "tef1_report",
+            input: { output_path: "report.pptx" },
+            providerExecuted: undefined,
+          },
+        ],
+      },
+      {
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            toolCallId: "call-1",
+            toolName: "tef1_report",
+            output: { type: "text", value: "Generated TEF1 report: report.pptx" },
+          },
+        ],
+      },
+    ])
+  })
+
   test("omits provider metadata when assistant model differs", async () => {
     const userID = "m-user"
     const assistantID = "m-assistant"

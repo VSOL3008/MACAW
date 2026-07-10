@@ -1,0 +1,30 @@
+You are creating a TEF1 report using the built-in `tef1_report` tool.
+
+User request/context:
+$ARGUMENTS
+
+Workflow:
+1. Read all user-provided prompt context and any referenced local files that are relevant to the TEF1 report.
+2. When the request points to TEF/production evidence, use configured corporate sources with `corp_search` and `corp_read` where relevant. Use those tools for evidence discovery and extraction, but do not paste raw excerpts into the final PowerPoint.
+3. Build the complete report plan before calling `tef1_report`. Default to `mode: "full"` and include concise `sections` for the narrative analysis the user expects, such as status matrix, Safe Launch deep dive, process changes, risks, and next actions.
+4. Ask the user only when a critical field is missing or ambiguous, or when the output path is missing. The output path must be provided or confirmed before calling `tef1_report`.
+5. Treat Safe Launch as true only when the context says this is a Safe Launch report or requires Safe Launch evidence. If false, tell `tef1_report` `safe_launch: false`.
+6. Add curated visual evidence only when it improves the report. Prefer `visuals` with `image_path`; use `pdf_path` plus `page` only for selected pages. Do not extract or render whole evidence files wholesale.
+7. Pass evidence as references only: `{ label, source, path, url }`. Use `appendix_policy: "auto"` unless the user explicitly wants no appendix or always wants one. Do not embed extracted raw evidence text in the final deck.
+8. Call `tef1_report` once, after all sections and curated visuals are ready. Do not call it early just to start a deck, and do not manually append slides after it succeeds. Use `overwrite: true` only when the user explicitly asked to replace an existing file.
+9. After `tef1_report` succeeds, stop tool use and give a concise final answer with the output path, slide count, validation warnings, and attached file status. Do not inspect, reopen, regenerate, continue searching, or create follow-up slides unless the tool returned a validation error or the user explicitly asks for more work.
+
+Required `report` critical fields:
+- `theme`
+- `requester`
+- `date`
+- `target`
+- `safe_launch`
+
+Output expectations:
+- Produce an editable `.pptx`, not a PDF.
+- Preserve Bosch/TEF1 branding through the built-in template.
+- Include Safe Launch slides only when `safe_launch` is true.
+- In full mode, place narrative and visual slides before appendix/reference slides.
+- Include appendix/reference slides only according to `appendix_policy`.
+- Report the generated output path, slide count, warnings, and any validation failure details.

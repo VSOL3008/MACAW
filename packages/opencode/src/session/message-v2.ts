@@ -625,7 +625,7 @@ export namespace MessageV2 {
           attachments?: Array<{ mime: string; url: string }>
         }
         const attachments = (outputObject.attachments ?? []).filter((attachment) => {
-          return attachment.url.startsWith("data:") && attachment.url.includes(",")
+          return isMedia(attachment.mime) && attachment.url.startsWith("data:") && attachment.url.includes(",")
         })
 
         return {
@@ -738,11 +738,10 @@ export namespace MessageV2 {
               // For providers that don't support media in tool results, extract media files
               // (images, PDFs) to be sent as a separate user message
               const mediaAttachments = attachments.filter((a) => isMedia(a.mime))
-              const nonMediaAttachments = attachments.filter((a) => !isMedia(a.mime))
               if (!supportsMediaInToolResults && mediaAttachments.length > 0) {
                 media.push(...mediaAttachments)
               }
-              const finalAttachments = supportsMediaInToolResults ? attachments : nonMediaAttachments
+              const finalAttachments = supportsMediaInToolResults ? mediaAttachments : []
 
               const output =
                 finalAttachments.length > 0

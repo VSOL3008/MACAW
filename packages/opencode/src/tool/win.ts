@@ -87,6 +87,48 @@ export async function run(script: string, signal?: AbortSignal) {
   }
 }
 
+export async function runFile(script: string, signal?: AbortSignal) {
+  ensureWindows()
+  const file = `${process.env.TEMP ?? process.env.TMP ?? "."}\\macaw-ps-${crypto.randomUUID()}.ps1`
+  await Bun.write(file, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(script, "utf8")]))
+  const child = Bun.spawn(
+    [
+      "powershell",
+      "-NoLogo",
+      "-NoProfile",
+      "-NonInteractive",
+      "-OutputFormat",
+      "Text",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      file,
+    ],
+    {
+      stdout: "pipe",
+      stderr: "pipe",
+      env: process.env,
+    },
+  )
+  const abort = () => child.kill()
+  signal?.addEventListener("abort", abort, { once: true })
+  try {
+    const [out, err, code] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ])
+    if (code !== 0) {
+      const msg = clean(err) || clean(out) || "PowerShell command failed"
+      throw new Error(msg)
+    }
+    return out.trim()
+  } finally {
+    signal?.removeEventListener("abort", abort)
+    await unlink(file).catch(() => undefined)
+  }
+}
+
 export async function json<T>(script: string, signal?: AbortSignal) {
   const out = await run(script, signal)
   if (!out) return undefined as T
