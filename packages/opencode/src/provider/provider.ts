@@ -49,6 +49,30 @@ const FOUNDRY = "azure-foundry"
 const MODEL_FALLBACK = "qwen3:latest"
 const SMALL_HINTS = ["1.5b", "3b", "mini", "small"]
 const PRIORITY = ["qwen3", "qwen2.5", "phi4", "llama3.2", "llama3.1", "mistral", "deepseek-r1"]
+const OPENAI_VISION = [
+  /(^|[^a-z0-9])gpt-4o($|[^a-z0-9])/,
+  /(^|[^a-z0-9])gpt-4\.1($|[^a-z0-9])/,
+  /(^|[^a-z0-9])gpt-4\.5($|[^a-z0-9])/,
+  /(^|[^a-z0-9])gpt-4-turbo($|[^a-z0-9])/,
+  /(^|[^a-z0-9])gpt-4-vision($|[^a-z0-9])/,
+  /(^|[^a-z0-9])gpt-5($|[^a-z0-9])/,
+  /(^|[^a-z0-9])o[1-9]($|[^a-z0-9])/,
+]
+const VISION_HINTS = [
+  "vision",
+  "vl",
+  "llava",
+  "moondream",
+  "multimodal",
+  "minicpm",
+  "qwen2.5vl",
+  "qwen2.5-vl",
+  "qwen3vl",
+  "qwen3-vl",
+  "qwen3_vl",
+  "mai-ui",
+  "mai_ui",
+]
 const net = Object.assign(
   (input: RequestInfo | URL, init?: RequestInit) =>
     Proxy.fetch(typeof input === "string" || input instanceof URL ? input.toString() : input.url, init),
@@ -120,27 +144,17 @@ function keyword(id: string, list: string[]) {
   return list.some((item) => lower.includes(item))
 }
 
+function multimodal(id: string) {
+  const lower = id.toLowerCase()
+  return OPENAI_VISION.some((item) => item.test(lower))
+}
+
 function vision(id: string, tag?: Tag) {
   if (tag?.capabilities?.includes("vision")) return true
   const list = [id, tag?.details?.family, ...(tag?.details?.families ?? [])].filter((item): item is string =>
     Boolean(item),
   )
-  return list.some((item) =>
-    keyword(item, [
-      "vision",
-      "vl",
-      "llava",
-      "moondream",
-      "minicpm",
-      "qwen2.5vl",
-      "qwen2.5-vl",
-      "qwen3vl",
-      "qwen3-vl",
-      "qwen3_vl",
-      "mai-ui",
-      "mai_ui",
-    ]),
-  )
+  return list.some((item) => multimodal(item) || keyword(item, VISION_HINTS))
 }
 
 function reasoning(id: string) {

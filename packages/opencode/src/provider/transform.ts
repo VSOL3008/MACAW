@@ -273,7 +273,7 @@ export namespace ProviderTransform {
         const name = filename ? `"${filename}"` : modality
         return {
           type: "text" as const,
-          text: `ERROR: Cannot read ${name} (this model does not support ${modality} input). Inform the user.`,
+          text: `[Attachment omitted: ${name} could not be sent because this model is not configured for ${modality} input.]`,
         }
       })
 

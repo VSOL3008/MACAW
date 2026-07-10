@@ -70,22 +70,28 @@ const visual = z
     caption: z.string().min(1),
     image_path: z.string().min(1).optional(),
     pdf_path: z.string().min(1).optional(),
+    pptx_path: z.string().min(1).optional(),
     page: z.number().int().positive().optional(),
+    slide: z.number().int().positive().optional(),
+    picture: z.number().int().positive().optional(),
+    pick: z.enum(["largest", "first"]).default("largest"),
+    layout: z.enum(["large", "contain"]).default("large"),
     source: z.string().min(1),
     crop: crop.optional(),
   })
   .superRefine((val, ctx) => {
-    if (val.image_path && val.pdf_path) {
+    const count = [val.image_path, val.pdf_path, val.pptx_path].filter(Boolean).length
+    if (count > 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "visual must use either image_path or pdf_path, not both",
+        message: "visual must use only one of image_path, pdf_path, or pptx_path",
         path: ["image_path"],
       })
     }
-    if (!val.image_path && !val.pdf_path) {
+    if (count === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "visual requires image_path or pdf_path",
+        message: "visual requires image_path, pdf_path, or pptx_path",
         path: ["image_path"],
       })
     }
@@ -94,6 +100,13 @@ const visual = z
         code: z.ZodIssueCode.custom,
         message: "visual pdf_path requires page",
         path: ["page"],
+      })
+    }
+    if (val.pptx_path && !val.slide) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "visual pptx_path requires slide",
+        path: ["slide"],
       })
     }
   })
@@ -251,15 +264,82 @@ async function convert(pdf: string, page: number, dir: string, i: number, signal
   return out
 }
 
+function target(value: string) {
+  return path.posix.normalize(path.posix.join("ppt/slides", value)).replace(/^\/+/, "")
+}
+
+async function extract(pptx: string, slide: number, dir: string, i: number, pick: "largest" | "first", picture?: number) {
+  await mkdir(dir, { recursive: true })
+  const zip = await import("@zip.js/zip.js")
+  const reader = new zip.ZipReader(new zip.BlobReader(Bun.file(pptx)))
+  try {
+    const map = new Map((await reader.getEntries()).map((item) => [item.filename, item]))
+    const body = await map.get(`ppt/slides/slide${slide}.xml`)?.getData?.(new zip.TextWriter())
+    const rels = await map.get(`ppt/slides/_rels/slide${slide}.xml.rels`)?.getData?.(new zip.TextWriter())
+    if (!body || !rels) throw new Error(`TEF1 visual slide ${slide} was not found in PPTX: ${pptx}`)
+    const jsdom = await import("jsdom")
+    const sdoc = new jsdom.JSDOM(body, { contentType: "text/xml" }).window.document
+    const rdoc = new jsdom.JSDOM(rels, { contentType: "text/xml" }).window.document
+    const rel = new Map(
+      Array.from(rdoc.getElementsByTagName("Relationship"))
+        .map((node) => ({
+          id: node.getAttribute("Id") ?? "",
+          target: node.getAttribute("Target") ?? "",
+        }))
+        .filter((item) => item.id && item.target)
+        .map((item) => [item.id, target(item.target)]),
+    )
+    const pics = Array.from(sdoc.getElementsByTagName("p:pic"))
+      .map((node, index) => {
+        const blip = node.getElementsByTagName("a:blip")[0]
+        const ext = Array.from(node.getElementsByTagName("a:ext")).find(
+          (item) => item.getAttribute("cx") && item.getAttribute("cy"),
+        )
+        const cx = Number(ext?.getAttribute("cx") ?? 0)
+        const cy = Number(ext?.getAttribute("cy") ?? 0)
+        return {
+          index: index + 1,
+          path: rel.get(blip?.getAttribute("r:embed") ?? "") ?? "",
+          area: cx * cy,
+        }
+      })
+      .filter((item) => item.path)
+    const pic = picture
+      ? pics.find((item) => item.index === picture)
+      : pick === "first"
+        ? pics[0]
+        : pics.sort((a, b) => b.area - a.area)[0]
+    if (!pic) throw new Error(`TEF1 visual found no embedded picture on slide ${slide} in PPTX: ${pptx}`)
+    const media = map.get(pic.path)
+    if (!media) throw new Error(`TEF1 visual media was not found in PPTX: ${pic.path}`)
+    const data = await media.getData?.(new zip.BlobWriter())
+    if (!data) throw new Error(`TEF1 visual media could not be extracted from PPTX: ${pic.path}`)
+    const out = path.join(dir, `visual-${i}${path.extname(pic.path) || ".png"}`)
+    await Bun.write(out, data)
+    return out
+  } finally {
+    await reader.close()
+  }
+}
+
 export async function prepare(input: Tef1Input, signal?: AbortSignal) {
   const dir = path.join(os.tmpdir(), `macaw-tef1-visual-${crypto.randomUUID()}`)
-  const pdfs = input.visuals.filter((item) => item.pdf_path)
+  const temps = input.visuals.filter((item) => item.pdf_path || item.pptx_path)
   const visuals = await Promise.all(
     input.visuals.map(async (item, i) => {
       if (item.image_path) {
         const image = file(item.image_path)
         if (!(await Bun.file(image).exists())) throw new Error(`TEF1 visual image not found: ${image}`)
         return { ...item, image_path: image }
+      }
+      if (item.pptx_path) {
+        const pptx = file(item.pptx_path)
+        if (!(await Bun.file(pptx).exists())) throw new Error(`TEF1 visual PPTX not found: ${pptx}`)
+        return {
+          ...item,
+          image_path: await extract(pptx, item.slide!, dir, i + 1, item.pick, item.picture),
+          pptx_path: undefined,
+        }
       }
       const pdf = file(item.pdf_path!)
       if (!(await Bun.file(pdf).exists())) throw new Error(`TEF1 visual PDF not found: ${pdf}`)
@@ -268,7 +348,7 @@ export async function prepare(input: Tef1Input, signal?: AbortSignal) {
   )
   return {
     input: { ...input, visuals },
-    cleanup: () => (pdfs.length ? rm(dir, { recursive: true, force: true }) : Promise.resolve()),
+    cleanup: () => (temps.length ? rm(dir, { recursive: true, force: true }) : Promise.resolve()),
   }
 }
 
@@ -576,11 +656,36 @@ function Add-PictureFit($slide, [string]$file, [double]$left, [double]$top, [dou
   return $pic
 }
 
+function Visual-Frame($visual) {
+  $layout = Txt $visual.layout 'large'
+  if ($layout -eq 'contain') {
+    return [pscustomobject]@{
+      left = 54
+      top = 142
+      width = 756
+      height = 238
+      captionTop = 392
+      captionHeight = 52
+      captionSize = 9
+    }
+  }
+  return [pscustomobject]@{
+    left = 46
+    top = 132
+    width = 772
+    height = 284
+    captionTop = 420
+    captionHeight = 24
+    captionSize = 7
+  }
+}
+
 function Fill-Visual($slide, $item, [int]$index, [int]$total) {
   Fill-Title $slide (Txt $item.visual.title) $index $total
   Remove-BodyText $slide
-  Add-PictureFit $slide ([string]$item.visual.image_path) 54 142 756 238 $item.visual.crop | Out-Null
-  Add-Text $slide 54 392 756 52 ((Txt $item.visual.caption) + [Environment]::NewLine + ('Source: ' + (Txt $item.visual.source))) 9 $false | Out-Null
+  $frame = Visual-Frame $item.visual
+  Add-PictureFit $slide ([string]$item.visual.image_path) $frame.left $frame.top $frame.width $frame.height $item.visual.crop | Out-Null
+  Add-Text $slide 54 $frame.captionTop 756 $frame.captionHeight ((Txt $item.visual.caption) + [Environment]::NewLine + ('Source: ' + (Txt $item.visual.source))) $frame.captionSize $false | Out-Null
 }
 
 function Fill-Slide1($slide) {
@@ -782,7 +887,7 @@ export const Tef1ReportTool = Tool.define("tef1_report", {
     const out = output(data)
     await assertExternalDirectory(ctx, out)
     await Promise.all(
-      data.visuals.map((item) => assertExternalDirectory(ctx, file(item.image_path ?? item.pdf_path!))),
+      data.visuals.map((item) => assertExternalDirectory(ctx, file(item.image_path ?? item.pdf_path ?? item.pptx_path!))),
     )
     const target = pattern(out)
     await ctx.ask({

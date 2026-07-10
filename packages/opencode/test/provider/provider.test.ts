@@ -883,6 +883,69 @@ test("model modalities default correctly", async () => {
   })
 })
 
+test("azure foundry gpt deployments infer image input", async () => {
+  await using tmp = await tmpdir({
+    init: async (dir) => {
+      await Bun.write(
+        path.join(dir, "opencode.json"),
+        JSON.stringify({
+          $schema: "https://opencode.ai/config.json",
+          provider: {
+            "azure-foundry": {
+              name: "Azure Foundry",
+              npm: "@ai-sdk/openai-compatible",
+              env: [],
+              api: "https://example.services.ai.azure.com/openai/v1",
+              models: {
+                "gpt-4o-prod": {
+                  name: "GPT-4o",
+                  tool_call: true,
+                  limit: { context: 128000, output: 4096 },
+                },
+                "gpt-5.4": {
+                  name: "GPT-5.4",
+                  tool_call: true,
+                  limit: { context: 128000, output: 4096 },
+                },
+                o3: {
+                  name: "o3",
+                  tool_call: true,
+                  limit: { context: 128000, output: 4096 },
+                },
+                reporting: {
+                  id: "gpt-4.1-reporting",
+                  name: "GPT-4.1 Reporting",
+                  tool_call: true,
+                  limit: { context: 128000, output: 4096 },
+                },
+                "gpt-5-codex": {
+                  name: "GPT-5 Codex",
+                  tool_call: true,
+                  limit: { context: 128000, output: 4096 },
+                },
+              },
+              options: { apiKey: "test" },
+            },
+          },
+        }),
+      )
+    },
+  })
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const models = (await Provider.list())[ProviderID.make("azure-foundry")].models
+      expect(models["gpt-4o-prod"].capabilities.input.image).toBe(true)
+      expect(models["gpt-4o-prod"].capabilities.input.pdf).toBe(true)
+      expect(models["gpt-4o-prod"].capabilities.attachment).toBe(true)
+      expect(models["gpt-5.4"].capabilities.input.image).toBe(true)
+      expect(models.o3.capabilities.input.image).toBe(true)
+      expect(models.reporting.capabilities.input.image).toBe(true)
+      expect(models["gpt-5-codex"].capabilities.input.image).toBe(true)
+    },
+  })
+})
+
 test("model with custom cost values", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {

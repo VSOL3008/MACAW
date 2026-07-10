@@ -81,6 +81,16 @@ describe("tef1.parameters", () => {
     })
     expect(out.sections[0]?.title).toBe("Release matrix")
     expect(out.visuals[0]?.image_path).toBe("result.png")
+    expect(out.visuals[0]?.layout).toBe("large")
+  })
+
+  test("accepts PPTX slide visual extraction", () => {
+    const out = parameters.parse({
+      ...sample(),
+      visuals: [{ title: "Deck image", caption: "Picture from source slide", pptx_path: "evidence.pptx", slide: 2, source: "TEF deck" }],
+    })
+    expect(out.visuals[0]?.pptx_path).toBe("evidence.pptx")
+    expect(out.visuals[0]?.pick).toBe("largest")
   })
 
   test("rejects invalid visual inputs", () => {
@@ -103,7 +113,13 @@ describe("tef1.parameters", () => {
           { title: "Both", caption: "Ambiguous", image_path: "image.png", pdf_path: "deck.pdf", page: 1, source: "TEF" },
         ],
       }),
-    ).toThrow("not both")
+    ).toThrow("only one")
+    expect(() =>
+      parameters.parse({
+        ...sample(),
+        visuals: [{ title: "PPTX", caption: "No slide", pptx_path: "deck.pptx", source: "TEF drive" }],
+      }),
+    ).toThrow("requires slide")
   })
 })
 
@@ -253,6 +269,7 @@ describe("tef1 command template", () => {
     const text = await Bun.file(path.join(import.meta.dir, "../../src/command/template/tef1-report.txt")).text()
     expect(text).toContain("Build the complete report plan before calling `tef1_report`")
     expect(text).toContain("Do not call it early just to start a deck")
+    expect(text).toContain("Use `pptx_path` plus `slide`")
     expect(text).toContain("After `tef1_report` succeeds, stop tool use")
   })
 })
@@ -403,6 +420,59 @@ describe("Tef1ReportTool", () => {
         }),
       )
       try {
+        const raw = await runFile(build(ready.input, { output: out, render: dir }))
+        const res = JSON.parse(raw)
+        expect(res.slide_count).toBe(2)
+        expect((await Array.fromAsync(new Bun.Glob("*.PNG").scan({ cwd: res.render_path }))).length).toBe(2)
+      } finally {
+        await ready.cleanup()
+      }
+    },
+    { timeout: 60000 },
+  )
+
+  livetest(
+    "generates a full report with an embedded PPTX picture visual",
+    async () => {
+      await using tmp = await tmpdir()
+      const img = path.join(tmp.path, "source.png")
+      const pptx = path.join(tmp.path, "source.pptx")
+      const out = path.join(tmp.path, "pptx-visual.pptx")
+      const dir = path.join(tmp.path, "render-pptx")
+      await Bun.write(
+        img,
+        Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+          "base64",
+        ),
+      )
+      await runFile(
+        [
+          "$ErrorActionPreference = 'Stop'",
+          "$app = New-Object -ComObject PowerPoint.Application",
+          "$app.DisplayAlerts = 1",
+          "$pres = $app.Presentations.Add()",
+          "$slide = $pres.Slides.Add(1, 12)",
+          `$slide.Shapes.AddPicture('${img.replaceAll("'", "''")}', $false, $true, 100, 100, 320, 180) | Out-Null`,
+          `$pres.SaveAs('${pptx.replaceAll("'", "''")}')`,
+          "$pres.Close()",
+          "$app.Quit()",
+        ].join("\n"),
+      )
+      const ready = await prepare(
+        parameters.parse({
+          ...sample(false),
+          output_path: out,
+          report: {
+            ...sample(false).report,
+            results: "Embedded PPTX image was extracted.",
+            summary: "Use real source visuals rather than full-slide screenshots.",
+          },
+          visuals: [{ title: "Extracted source picture", caption: "Largest embedded picture from source deck.", pptx_path: pptx, slide: 1, source: "TEF PPTX" }],
+        }),
+      )
+      try {
+        expect(await Bun.file(ready.input.visuals[0]?.image_path ?? "").exists()).toBe(true)
         const raw = await runFile(build(ready.input, { output: out, render: dir }))
         const res = JSON.parse(raw)
         expect(res.slide_count).toBe(2)

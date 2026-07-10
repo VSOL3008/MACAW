@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { ProviderTransform } from "../../src/provider/transform"
 import { ModelID, ProviderID } from "../../src/provider/schema"
+import type { Provider } from "../../src/provider/provider"
 
 const OUTPUT_TOKEN_MAX = 32000
 
@@ -908,6 +909,65 @@ describe("ProviderTransform.message - DeepSeek reasoning content", () => {
       { type: "text", text: "Answer" },
     ])
     expect(result[0].providerOptions?.openaiCompatible?.reasoning_content).toBeUndefined()
+  })
+})
+
+describe("ProviderTransform.message - unsupported media", () => {
+  const model = {
+    id: ModelID.make("test-model"),
+    providerID: ProviderID.make("test"),
+    api: {
+      id: "test-model",
+      url: "https://example.com",
+      npm: "@ai-sdk/openai-compatible",
+    },
+    name: "Test",
+    capabilities: {
+      temperature: true,
+      reasoning: false,
+      attachment: false,
+      toolcall: true,
+      input: { text: true, audio: false, image: false, video: false, pdf: false },
+      output: { text: true, audio: false, image: false, video: false, pdf: false },
+      interleaved: false,
+    },
+    cost: {
+      input: 0,
+      output: 0,
+      cache: { read: 0, write: 0 },
+    },
+    limit: {
+      context: 8000,
+      output: 2000,
+    },
+    status: "active",
+    options: {},
+    headers: {},
+    release_date: "2026-01-01",
+    variants: {},
+  } satisfies Provider.Model
+
+  test("uses neutral text for unsupported image parts", () => {
+    const msgs = [
+      {
+        role: "user",
+        content: [
+          {
+            type: "file",
+            mediaType: "image/png",
+            filename: "pic.png",
+            data: "abc",
+          },
+        ],
+      },
+    ] satisfies Parameters<typeof ProviderTransform.message>[0]
+
+    expect(ProviderTransform.message(msgs, model, {})[0].content).toEqual([
+      {
+        type: "text",
+        text: `[Attachment omitted: "pic.png" could not be sent because this model is not configured for image input.]`,
+      },
+    ])
   })
 })
 
