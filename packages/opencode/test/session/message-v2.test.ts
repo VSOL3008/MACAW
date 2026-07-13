@@ -107,6 +107,26 @@ function basePart(messageID: string, id: string) {
   }
 }
 
+function pdf(pages: number) {
+  const kids = Array.from({ length: pages }, (_, idx) => `${idx + 3} 0 R`).join(" ")
+  const objs = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    `<< /Type /Pages /Kids [${kids}] /Count ${pages} >>`,
+    ...Array.from({ length: pages }, () => "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>"),
+  ]
+  const out = ["%PDF-1.4\n"]
+  const offsets = [0]
+  for (const [idx, obj] of objs.entries()) {
+    offsets.push(Buffer.byteLength(out.join("")))
+    out.push(`${idx + 1} 0 obj\n${obj}\nendobj\n`)
+  }
+  const start = Buffer.byteLength(out.join(""))
+  out.push(`xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`)
+  out.push(offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join(""))
+  out.push(`trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${start}\n%%EOF`)
+  return Buffer.from(out.join("")).toString("base64")
+}
+
 describe("session.message-v2.toModelMessage", () => {
   test("filters out messages with no parts", async () => {
     const input: MessageV2.WithParts[] = [
@@ -306,6 +326,57 @@ describe("session.message-v2.toModelMessage", () => {
             text: "[Attached PDF: guide.pdf. The PDF file itself was not sent because this model does not support native PDF input; use the extracted text in the conversation if available.]",
           },
           { type: "text", text: "summarize it" },
+        ],
+      },
+    ])
+  })
+
+  test("omits azure pdf when page count would exceed image input cap", async () => {
+    const messageID = "m-user"
+    const azure = {
+      ...model,
+      providerID: ProviderID.make("azure-foundry"),
+      api: {
+        ...model.api,
+        npm: "@ai-sdk/openai-compatible",
+        url: "https://example.openai.azure.com/openai/v1",
+      },
+      capabilities: {
+        ...model.capabilities,
+        attachment: true,
+        input: { ...model.capabilities.input, image: true, pdf: true },
+      },
+    } satisfies Provider.Model
+
+    const input: MessageV2.WithParts[] = [
+      {
+        info: userInfo(messageID),
+        parts: [
+          {
+            ...basePart(messageID, "p1"),
+            type: "text",
+            text: "extracted pdf text",
+          },
+          {
+            ...basePart(messageID, "p2"),
+            type: "file",
+            mime: "application/pdf",
+            filename: "large.pdf",
+            url: `data:application/pdf;base64,${pdf(51)}`,
+          },
+        ] as MessageV2.Part[],
+      },
+    ]
+
+    expect(await MessageV2.toModelMessages(input, azure)).toStrictEqual([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "extracted pdf text" },
+          {
+            type: "text",
+            text: `[Attachment omitted: "large.pdf" was not sent because Azure OpenAI counts it as 51 image inputs and accepts at most 50 image inputs per request; extracted text remains available when present.]`,
+          },
         ],
       },
     ])

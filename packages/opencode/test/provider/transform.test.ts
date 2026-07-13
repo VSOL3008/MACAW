@@ -969,6 +969,39 @@ describe("ProviderTransform.message - unsupported media", () => {
       },
     ])
   })
+
+  test("limits azure foundry image parts and keeps newest images", () => {
+    const azure = {
+      ...model,
+      providerID: ProviderID.make("azure-foundry"),
+      api: {
+        ...model.api,
+        url: "https://example.openai.azure.com/openai/v1",
+      },
+      capabilities: {
+        ...model.capabilities,
+        attachment: true,
+        input: { ...model.capabilities.input, image: true },
+      },
+    } satisfies Provider.Model
+    const imgs = Array.from({ length: 51 }, (_, idx) => ({
+      type: "file" as const,
+      mediaType: "image/png",
+      filename: `img-${idx}.png`,
+      data: "abc",
+    }))
+    const result = ProviderTransform.message([{ role: "user", content: imgs }], azure, {})
+    const content = result[0].content
+    if (!Array.isArray(content)) throw new Error("Expected array content")
+
+    expect(content.filter((part) => part.type === "file")).toHaveLength(50)
+    expect(content[0]).toEqual({
+      type: "text",
+      text: `[Attachment omitted: "img-0.png" was not sent because Azure OpenAI accepts at most 50 images per request; newer images were kept.]`,
+    })
+    expect(content[1]).toMatchObject({ filename: "img-1.png" })
+    expect(content.at(-1)).toMatchObject({ filename: "img-50.png" })
+  })
 })
 
 describe("ProviderTransform.message - empty image handling", () => {

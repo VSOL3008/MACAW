@@ -9,6 +9,8 @@ import { Flag } from "@/flag/flag"
 
 type Modality = NonNullable<ModelsDev.Model["modalities"]>["input"][number]
 
+const AZURE_IMAGE_MAX = 50
+
 function mimeToModality(mime: string): Modality | undefined {
   if (mime.startsWith("image/")) return "image"
   if (mime.startsWith("audio/")) return "audio"
@@ -21,6 +23,10 @@ function foundry(url: unknown) {
   if (typeof url !== "string" || !URL.canParse(url)) return false
   const host = new URL(url).hostname.toLowerCase()
   return host.endsWith(".openai.azure.com") || host.endsWith(".services.ai.azure.com")
+}
+
+function azure(model: Provider.Model) {
+  return model.providerID === "azure-foundry" || model.api.npm === "@ai-sdk/azure" || foundry(model.api.url)
 }
 
 export namespace ProviderTransform {
@@ -281,8 +287,45 @@ export namespace ProviderTransform {
     })
   }
 
+  function image(part: Extract<Extract<ModelMessage, { role: "user" }>["content"], unknown[]>[number]) {
+    if (part.type === "image") return true
+    return part.type === "file" && part.mediaType.startsWith("image/")
+  }
+
+  function label(part: Extract<Extract<ModelMessage, { role: "user" }>["content"], unknown[]>[number]) {
+    if (part.type !== "file") return "image"
+    return part.filename ? `"${part.filename}"` : "image"
+  }
+
+  function limitImages(msgs: ModelMessage[], model: Provider.Model): ModelMessage[] {
+    if (!azure(model)) return msgs
+    const count = msgs.flatMap((msg) => {
+      if (msg.role !== "user" || !Array.isArray(msg.content)) return []
+      return msg.content.filter(image)
+    }).length
+    const excess = count - AZURE_IMAGE_MAX
+    if (excess <= 0) return msgs
+
+    let dropped = 0
+    return msgs.map((msg) => {
+      if (msg.role !== "user" || !Array.isArray(msg.content)) return msg
+      return {
+        ...msg,
+        content: msg.content.map((part) => {
+          if (!image(part) || dropped >= excess) return part
+          dropped++
+          return {
+            type: "text" as const,
+            text: `[Attachment omitted: ${label(part)} was not sent because Azure OpenAI accepts at most ${AZURE_IMAGE_MAX} images per request; newer images were kept.]`,
+          }
+        }),
+      }
+    })
+  }
+
   export function message(msgs: ModelMessage[], model: Provider.Model, options: Record<string, unknown>) {
     msgs = unsupportedParts(msgs, model)
+    msgs = limitImages(msgs, model)
     msgs = normalizeMessages(msgs, model, options)
     if (
       (model.providerID === "anthropic" ||

@@ -607,6 +607,201 @@
     background: rgba(126, 31, 54, 0.18);
   }
 
+  .macaw-todo-plan {
+    display: flex;
+    max-width: 34rem;
+    flex-direction: column;
+    gap: 0.65rem;
+    border: 1px solid rgba(111, 214, 151, 0.22);
+    border-radius: 0.95rem;
+    background: linear-gradient(180deg, rgba(34, 197, 94, 0.11) 0%, rgba(15, 23, 42, 0.28) 100%);
+    padding: 0.75rem 0.85rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .macaw-todo-follow .macaw-bubble {
+    width: min(34rem, 92%);
+    border: 0;
+    background: transparent;
+    padding: 0;
+  }
+
+  .macaw-todo-plan.live {
+    width: 100%;
+    max-width: none;
+    border-color: rgba(96, 214, 255, 0.35);
+    background: linear-gradient(180deg, rgba(53, 137, 184, 0.18) 0%, rgba(15, 23, 42, 0.32) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 16px 36px rgba(3, 8, 20, 0.2);
+  }
+
+  .macaw-todo-plan.mini {
+    padding: 0.55rem 0.65rem;
+    border-radius: 0.7rem;
+  }
+
+  .macaw-todo-head {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.45rem;
+    color: rgba(186, 201, 255, 0.88);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .macaw-todo-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    flex-direction: column;
+    gap: 0.14rem;
+  }
+
+  .macaw-todo-icon span {
+    width: 0.6rem;
+    height: 0.12rem;
+    border-radius: 999px;
+    background: rgba(111, 214, 151, 0.9);
+  }
+
+  .macaw-todo-plan.live .macaw-todo-icon span {
+    background: rgba(96, 214, 255, 0.95);
+  }
+
+  .macaw-todo-title {
+    flex: 1;
+    min-width: 0;
+    color: rgba(244, 247, 255, 0.92);
+    font-weight: 700;
+  }
+
+  .macaw-todo-count {
+    flex-shrink: 0;
+    color: rgba(226, 232, 240, 0.62);
+  }
+
+  .macaw-todo-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .macaw-todo-item {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: 1rem minmax(0, 1fr);
+    align-items: start;
+    gap: 0.55rem;
+    color: rgba(244, 247, 255, 0.9);
+    font-size: 0.82rem;
+    line-height: 1.45;
+    transition:
+      color 180ms ease,
+      opacity 180ms ease;
+  }
+
+  .macaw-todo-marker {
+    display: inline-flex;
+    width: 1rem;
+    height: 1.2rem;
+    align-items: center;
+    justify-content: center;
+    color: rgba(226, 232, 240, 0.56);
+  }
+
+  .macaw-todo-marker span {
+    position: relative;
+    display: inline-block;
+    width: 0.36rem;
+    height: 0.36rem;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .macaw-todo-marker.completed span {
+    width: 0.62rem;
+    height: 0.38rem;
+    border-radius: 0;
+    background: transparent;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg) translate(-0.04rem, -0.08rem);
+  }
+
+  .macaw-todo-marker.cancelled span {
+    width: 0.64rem;
+    height: 0.64rem;
+    background: transparent;
+  }
+
+  .macaw-todo-marker.cancelled span::before,
+  .macaw-todo-marker.cancelled span::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 1.5px;
+    background: currentColor;
+  }
+
+  .macaw-todo-marker.cancelled span::before {
+    transform: rotate(45deg);
+  }
+
+  .macaw-todo-marker.cancelled span::after {
+    transform: rotate(-45deg);
+  }
+
+  .macaw-todo-item.in_progress {
+    color: rgba(255, 255, 255, 0.98);
+    font-weight: 650;
+  }
+
+  .macaw-todo-item.in_progress .macaw-todo-marker {
+    color: rgba(96, 214, 255, 0.95);
+  }
+
+  .macaw-todo-item.in_progress .macaw-todo-marker span {
+    box-shadow: 0 0 0 0.22rem rgba(96, 214, 255, 0.13);
+    animation: macaw-todo-pulse 1.4s ease-in-out infinite;
+  }
+
+  .macaw-todo-item.completed {
+    color: rgba(226, 232, 240, 0.52);
+  }
+
+  .macaw-todo-item.completed .macaw-todo-content {
+    text-decoration: line-through;
+  }
+
+  .macaw-todo-item.cancelled {
+    color: rgba(226, 232, 240, 0.48);
+  }
+
+  .macaw-todo-content {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  @keyframes macaw-todo-pulse {
+    0%,
+    100% {
+      opacity: 0.62;
+      transform: scale(0.92);
+    }
+
+    50% {
+      opacity: 1;
+      transform: scale(1.16);
+    }
+  }
+
   .macaw-question {
     display: flex;
     flex-direction: column;
@@ -2986,6 +3181,69 @@
   .macaw-error {
     border-color: #fecaca;
     background: #fef2f2;
+  }
+
+  .macaw-todo-plan {
+    border: 1px solid #dbe1ea;
+    border-radius: 0.5rem;
+    background: #f8fbff;
+    padding: 0.55rem 0.7rem;
+    box-shadow: none;
+  }
+
+  .macaw-todo-plan.live {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+    box-shadow: none;
+  }
+
+  .macaw-todo-plan.mini {
+    border-radius: 0.45rem;
+    padding: 0.45rem 0.55rem;
+  }
+
+  .macaw-todo-head {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: #6b7280;
+  }
+
+  .macaw-todo-icon span {
+    background: #2563eb;
+  }
+
+  .macaw-todo-title {
+    color: #1f2937;
+  }
+
+  .macaw-todo-count {
+    color: #94a3b8;
+  }
+
+  .macaw-todo-item {
+    color: #374151;
+    font-size: 0.72rem;
+  }
+
+  .macaw-todo-marker {
+    color: #9ca3af;
+  }
+
+  .macaw-todo-item.in_progress {
+    color: #111827;
+  }
+
+  .macaw-todo-item.in_progress .macaw-todo-marker {
+    color: #2563eb;
+  }
+
+  .macaw-todo-item.in_progress .macaw-todo-marker span {
+    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.12);
+  }
+
+  .macaw-todo-item.completed,
+  .macaw-todo-item.cancelled {
+    color: #9ca3af;
   }
 
   .macaw-question {

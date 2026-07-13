@@ -1,6 +1,6 @@
-import type { FilePart, Message, Part, ToolPart } from "@macaw/sdk/v2/client"
+import type { FilePart, Message, Part, Todo, ToolPart } from "@macaw/sdk/v2/client"
 import { Markdown } from "@macaw/ui/markdown"
-import { For, Show, createEffect, createSignal, onCleanup } from "solid-js"
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
 
 export type Row = {
   info: Message
@@ -86,13 +86,36 @@ export function rowShellTools(row: Row): ToolPart[] {
   return row.parts.filter((part): part is ToolPart => part.type === "tool" && SHELL_TOOLS.has(part.tool))
 }
 
+export function rowTodoTools(row: Row): ToolPart[] {
+  return row.parts.filter((part): part is ToolPart => part.type === "tool" && part.tool === "todowrite")
+}
+
+export function latestTodo(rows: Row[]): ToolPart | undefined {
+  return rows.flatMap((row) => rowTodoTools(row)).at(-1)
+}
+
 export function rowOtherTools(row: Row): ToolPart[] {
   return row.parts.filter((part): part is ToolPart => {
     if (part.type !== "tool") return false
     if (part.tool === "task") return false
+    if (part.tool === "todowrite") return false
     if (SHELL_TOOLS.has(part.tool)) return false
     if (part.tool === "question" && (part.state.status === "pending" || part.state.status === "running")) return false
     return true
+  })
+}
+
+export function toolTodos(part: ToolPart): Todo[] | undefined {
+  const state = part.state as unknown as {
+    input?: { todos?: unknown }
+    metadata?: { todos?: unknown }
+  }
+  const value = Array.isArray(state.metadata?.todos) ? state.metadata.todos : state.input?.todos
+  if (!Array.isArray(value)) return
+  return value.filter((todo): todo is Todo => {
+    if (!todo || typeof todo !== "object") return false
+    const item = todo as Partial<Todo>
+    return typeof item.content === "string" && typeof item.status === "string" && typeof item.priority === "string"
   })
 }
 
@@ -149,6 +172,51 @@ export function Reasoning(props: { row: Row }) {
         <Markdown text={text()} class="macaw-reasoning-text" />
       </Show>
     </div>
+  )
+}
+
+export function TodoPlan(props: { part: ToolPart; mini?: boolean; todos?: Todo[]; live?: boolean }) {
+  const items = createMemo(() => props.todos ?? toolTodos(props.part) ?? [])
+  const done = createMemo(() => items().filter((item) => item.status === "completed").length)
+  const active = () => props.live || props.part.state.status === "pending" || props.part.state.status === "running"
+  const label = () => `To-dos ${done()}/${items().length}`
+
+  return (
+    <Show when={items().length > 0}>
+      <section
+        class="macaw-todo-plan"
+        classList={{ mini: props.mini, live: props.live }}
+        data-active={active() ? "" : undefined}
+        data-live={props.live ? "" : undefined}
+        aria-label={label()}
+        aria-live={props.live ? "polite" : undefined}
+      >
+        <div class="macaw-todo-head">
+          <span class="macaw-todo-icon" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+          <span class="macaw-todo-title">To-dos</span>
+          <span class="macaw-todo-count">
+            {done()}/{items().length}
+          </span>
+        </div>
+        <ol class="macaw-todo-list">
+          <For each={items()}>
+            {(todo) => (
+              <li class={`macaw-todo-item ${todo.status}`}>
+                <span class={`macaw-todo-marker ${todo.status}`} aria-hidden="true">
+                  <span />
+                </span>
+                <span class="sr-only">{todo.status.replace("_", " ")}</span>
+                <span class="macaw-todo-content">{todo.content}</span>
+              </li>
+            )}
+          </For>
+        </ol>
+      </section>
+    </Show>
   )
 }
 
@@ -243,6 +311,7 @@ export function TurnRow(props: { row: Row; mini?: boolean }) {
           <Markdown text={rowText(props.row)} class="macaw-markdown" />
         </Show>
       </Show>
+      <For each={rowTodoTools(props.row)}>{(part) => <TodoPlan part={part} mini={props.mini} />}</For>
       <Show when={rowOtherTools(props.row).length > 0}>
         <div class="macaw-inline-tools">
           <For each={rowOtherTools(props.row)}>

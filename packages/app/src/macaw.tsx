@@ -26,15 +26,19 @@ import {
   type Row,
   Reasoning,
   ShellToolCard,
+  TodoPlan,
   formatTime,
+  latestTodo,
   rowFiles,
   rowImages,
   rowOtherTools,
   rowReasoningParts,
   rowShellTools,
   rowTaskTools,
+  rowTodoTools,
   rowText,
   rowTools,
+  toolTodos,
 } from "@/components/turn"
 
 type Pair = {
@@ -482,6 +486,9 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
       .flatMap((row) => rowTools(row))
       .sort((a, b) => stamp(a) - stamp(b)),
   )
+  const todo = createMemo(() => latestTodo(state.messages))
+  const live = createMemo(() => (state.todos.length > 0 ? todo() : undefined))
+  const last = createMemo(() => state.messages.at(-1)?.info.id)
   const usage = createMemo(() => {
     const map = new Map<string, number>()
     for (const step of steps()) {
@@ -1205,12 +1212,18 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
         return
       }
       case "message.part.updated": {
-        const sid = event.properties.part.sessionID
+        const part = event.properties.part
+        const sid = part.sessionID
         if (sid === state.current) {
           setState("error", "")
-          setState("messages", (list) => upsertPart(list, event.properties.part))
+          setState("messages", (list) => upsertPart(list, part))
+          const todos = part.type === "tool" && part.tool === "todowrite" ? toolTodos(part) : undefined
+          if (todos) {
+            setState("todos", todos)
+            stick.follow()
+          }
         } else if (state.childMessages[sid]) {
-          setState("childMessages", sid, (list) => upsertPart(list, event.properties.part))
+          setState("childMessages", sid, (list) => upsertPart(list, part))
         }
         touchFallback(sid)
         return
@@ -1265,6 +1278,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
       case "todo.updated":
         if (event.properties.sessionID !== state.current) return
         setState("todos", event.properties.todos)
+        stick.follow()
         return
       case "question.asked": {
         const req = event.properties
@@ -1599,6 +1613,13 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
                       <Markdown text={rowText(row)} class="macaw-markdown" />
                     </Show>
                   </Show>
+                  <For each={rowTodoTools(row)}>
+                    {(part) => (
+                      <Show when={part.id !== live()?.id}>
+                        <TodoPlan part={part} mini />
+                      </Show>
+                    )}
+                  </For>
                   <Show when={rowOtherTools(row).length > 0}>
                     <div class="macaw-inline-tools">
                       <For each={rowOtherTools(row)}>
@@ -2055,8 +2076,18 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
               <div class="macaw-thread-body" ref={stick.body}>
                 <For each={state.messages}>
                   {(row) => (
-                    <div class={`macaw-turn ${row.info.role}`}>
-                      <div class="macaw-bubble">
+                    <>
+                      <Show when={!thinking() && row.info.id === last() && live()} keyed>
+                        {(part) => (
+                          <div class="macaw-turn assistant macaw-todo-follow">
+                            <div class="macaw-bubble">
+                              <TodoPlan part={part} todos={state.todos} live />
+                            </div>
+                          </div>
+                        )}
+                      </Show>
+                      <div class={`macaw-turn ${row.info.role}`}>
+                        <div class="macaw-bubble">
                         <div class="macaw-turn-head">
                           <span>{row.info.role === "user" ? "You" : "MACAW"}</span>
                           <span>{formatTime(row.info.time.created)}</span>
@@ -2107,6 +2138,13 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
                             <Markdown text={rowText(row)} class="macaw-markdown" />
                           </Show>
                         </Show>
+                        <For each={rowTodoTools(row)}>
+                          {(part) => (
+                            <Show when={part.id !== live()?.id}>
+                              <TodoPlan part={part} />
+                            </Show>
+                          )}
+                        </For>
                         <Show when={rowOtherTools(row).length > 0}>
                           <div class="macaw-inline-tools">
                             <For each={rowOtherTools(row)}>
@@ -2121,13 +2159,24 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
                         </Show>
                         <For each={rowShellTools(row)}>{(part) => <ShellToolCard part={part} />}</For>
                         <For each={rowTaskTools(row)}>{(part) => <SubagentCard part={part} />}</For>
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
                 </For>
                 <Show when={thinking()}>
-                  <div class="macaw-turn assistant">
-                    <div class="macaw-bubble macaw-thinking">
+                  <>
+                    <Show when={live()} keyed>
+                      {(part) => (
+                        <div class="macaw-turn assistant macaw-todo-follow">
+                          <div class="macaw-bubble">
+                            <TodoPlan part={part} todos={state.todos} live />
+                          </div>
+                        </div>
+                      )}
+                    </Show>
+                    <div class="macaw-turn assistant">
+                      <div class="macaw-bubble macaw-thinking">
                       <div class="macaw-turn-head">
                         <span>MACAW</span>
                         <span>{pretty(currentStatus())}</span>
@@ -2140,8 +2189,9 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
                           <span />
                         </div>
                       </div>
+                      </div>
                     </div>
-                  </div>
+                  </>
                 </Show>
               </div>
             </div>

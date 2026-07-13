@@ -42,7 +42,6 @@ import { Collapsible } from "./collapsible"
 import { FileIcon } from "./file-icon"
 import { Icon } from "./icon"
 import { ToolErrorCard } from "./tool-error-card"
-import { Checkbox } from "./checkbox"
 import { DiffChanges } from "./diff-changes"
 import { Markdown } from "./markdown"
 import { ImagePreview } from "./image-preview"
@@ -468,7 +467,6 @@ function taskSession(
 }
 
 const CONTEXT_GROUP_TOOLS = new Set(["read", "glob", "grep", "list"])
-const HIDDEN_TOOLS = new Set(["todowrite"])
 
 function list<T>(value: T[] | undefined | null, fallback: T[]) {
   if (Array.isArray(value)) return value
@@ -573,7 +571,6 @@ function index<T extends { id: string }>(items: readonly T[]) {
 
 function renderable(part: PartType, showReasoningSummaries = true) {
   if (part.type === "tool") {
-    if (HIDDEN_TOOLS.has(part.tool)) return false
     if (part.tool === "question") return part.state.status !== "pending" && part.state.status !== "running"
     return true
   }
@@ -1303,7 +1300,6 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
   const data = useData()
   const i18n = useI18n()
   const part = () => props.part as ToolPart
-  if (part().tool === "todowrite") return null
 
   const hideQuestion = createMemo(
     () => part().tool === "question" && (part().state.status === "pending" || part().state.status === "running"),
@@ -2211,48 +2207,61 @@ ToolRegistry.register({
   render(props) {
     const i18n = useI18n()
     const todos = createMemo(() => {
-      const meta = props.metadata?.todos
-      if (Array.isArray(meta)) return meta
-
-      const input = props.input.todos
-      if (Array.isArray(input)) return input
-
-      return []
+      const value = Array.isArray(props.metadata?.todos) ? props.metadata.todos : props.input.todos
+      if (!Array.isArray(value)) return []
+      return value.filter((todo): todo is Todo => {
+        if (!todo || typeof todo !== "object") return false
+        const item = todo as Partial<Todo>
+        return typeof item.content === "string" && typeof item.status === "string" && typeof item.priority === "string"
+      })
     })
+    const active = createMemo(() => props.status === "pending" || props.status === "running")
+    const done = createMemo(() => todos().filter((todo) => todo.status === "completed").length)
 
-    const subtitle = createMemo(() => {
-      const list = todos()
-      if (list.length === 0) return ""
-      return `${list.filter((t: Todo) => t.status === "completed").length}/${list.length}`
+    const label = createMemo(() => {
+      const count = todos().length
+      if (count === 0) return i18n.t("ui.tool.todos")
+      return `${i18n.t("ui.tool.todos")} ${done()}/${count}`
     })
 
     return (
-      <BasicTool
-        {...props}
-        defaultOpen
-        icon="checklist"
-        trigger={{
-          title: i18n.t("ui.tool.todos"),
-          subtitle: subtitle(),
-        }}
-      >
-        <Show when={todos().length}>
-          <div data-component="todos">
+      <Show when={todos().length}>
+        <section data-component="todo-plan" data-active={active() ? "" : undefined} aria-label={label()}>
+          <div data-slot="todo-plan-header">
+            <Icon name="checklist" size="small" />
+            <span data-slot="todo-plan-title">{i18n.t("ui.tool.todos")}</span>
+            <span data-slot="todo-plan-count">
+              {done()}/{todos().length}
+            </span>
+          </div>
+          <ol data-slot="todo-plan-list">
             <For each={todos()}>
-              {(todo: Todo) => (
-                <Checkbox readOnly checked={todo.status === "completed"}>
-                  <span
-                    data-slot="message-part-todo-content"
-                    data-completed={todo.status === "completed" ? "completed" : undefined}
-                  >
-                    {todo.content}
+              {(todo) => (
+                <li data-slot="todo-plan-item" data-status={todo.status}>
+                  <span data-slot="todo-plan-marker" aria-hidden="true">
+                    <Switch>
+                      <Match when={todo.status === "completed"}>
+                        <Icon name="check" size="small" />
+                      </Match>
+                      <Match when={todo.status === "cancelled"}>
+                        <Icon name="circle-x" size="small" />
+                      </Match>
+                      <Match when={todo.status === "in_progress"}>
+                        <span data-slot="todo-plan-dot" />
+                      </Match>
+                      <Match when={true}>
+                        <span data-slot="todo-plan-dot" />
+                      </Match>
+                    </Switch>
                   </span>
-                </Checkbox>
+                  <span class="sr-only">{todo.status.replace("_", " ")}</span>
+                  <span data-slot="todo-plan-content">{todo.content}</span>
+                </li>
               )}
             </For>
-          </div>
-        </Show>
-      </BasicTool>
+          </ol>
+        </section>
+      </Show>
     )
   },
 })

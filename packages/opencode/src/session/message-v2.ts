@@ -15,6 +15,9 @@ import type { SystemError } from "bun"
 import type { Provider } from "@/provider/provider"
 import { ModelID, ProviderID } from "@/provider/schema"
 import { Effect } from "effect"
+import { countPdfPages, decodeDataBytes } from "@/util/pdf"
+
+const AZURE_IMAGE_MAX = 50
 
 /** Error shape thrown by Bun's fetch() when gzip/br decompression fails mid-stream */
 interface FetchDecompressionError extends Error {
@@ -26,6 +29,63 @@ interface FetchDecompressionError extends Error {
 export namespace MessageV2 {
   export function isMedia(mime: string) {
     return mime.startsWith("image/") || mime === "application/pdf"
+  }
+
+  function foundry(url: string) {
+    if (!URL.canParse(url)) return false
+    const host = new URL(url).hostname.toLowerCase()
+    return host.endsWith(".openai.azure.com") || host.endsWith(".services.ai.azure.com")
+  }
+
+  function azure(model: Provider.Model) {
+    return model.providerID === "azure-foundry" || model.api.npm === "@ai-sdk/azure" || foundry(model.api.url)
+  }
+
+  type UIPart = UIMessage["parts"][number]
+
+  async function cost(part: UIPart) {
+    if (part.type !== "file") return 0
+    if (part.mediaType.startsWith("image/")) return 1
+    if (part.mediaType !== "application/pdf") return 0
+    return countPdfPages(decodeDataBytes(part.url)).catch(() => AZURE_IMAGE_MAX + 1)
+  }
+
+  function label(part: UIPart) {
+    if (part.type !== "file") return "attachment"
+    return part.filename ? `"${part.filename}"` : part.mediaType
+  }
+
+  function note(part: UIPart, pages: number) {
+    const text =
+      part.type === "file" && part.mediaType === "application/pdf"
+        ? `${label(part)} was not sent because Azure OpenAI counts it as ${pages} image inputs and accepts at most ${AZURE_IMAGE_MAX} image inputs per request; extracted text remains available when present.`
+        : `${label(part)} was not sent because Azure OpenAI accepts at most ${AZURE_IMAGE_MAX} images per request; newer images were kept.`
+    return {
+      type: "text" as const,
+      text: `[Attachment omitted: ${text}]`,
+    }
+  }
+
+  async function limitMedia(msgs: UIMessage[], model: Provider.Model) {
+    if (!azure(model)) return msgs
+    const out = msgs.map((msg) => ({
+      ...msg,
+      parts: [...msg.parts],
+    }))
+    let left = AZURE_IMAGE_MAX
+    for (let i = out.length - 1; i >= 0; i--) {
+      const parts = out[i].parts
+      for (let j = parts.length - 1; j >= 0; j--) {
+        const pages = await cost(parts[j])
+        if (pages === 0) continue
+        if (pages <= left) {
+          left -= pages
+          continue
+        }
+        parts[j] = note(parts[j], pages)
+      }
+    }
+    return out
   }
 
   export const OutputLengthError = NamedError.create("MessageOutputLengthError", z.object({}))
@@ -832,10 +892,11 @@ export namespace MessageV2 {
     }
 
     const tools = Object.fromEntries(Array.from(toolNames).map((toolName) => [toolName, { toModelOutput }]))
+    const limited = yield* Effect.promise(() => limitMedia(result, model))
 
     return yield* Effect.promise(() =>
       convertToModelMessages(
-        result.filter((msg) => msg.parts.some((part) => part.type !== "step-start")),
+        limited.filter((msg) => msg.parts.some((part) => part.type !== "step-start")),
         {
           //@ts-expect-error (convertToModelMessages expects a ToolSet but only actually needs tools[name]?.toModelOutput)
           tools,
