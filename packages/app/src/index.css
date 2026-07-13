@@ -2154,6 +2154,9 @@
     --mg-edge: rgba(226, 232, 240, 0.18);
     --mg-edge-dim: rgba(226, 232, 240, 0.07);
     --mg-edge-active: rgba(96, 214, 255, 0.8);
+    --mg-edge-glow: rgba(96, 214, 255, 0.3);
+    --mg-grid: rgba(148, 163, 184, 0.11);
+    --mg-surface: #0b1020;
   }
 
   .macaw-graph-map {
@@ -2162,6 +2165,22 @@
     height: 100%;
     min-height: 0;
     overflow: hidden;
+    isolation: isolate;
+    background:
+      radial-gradient(circle at 50% 44%, rgba(96, 214, 255, 0.08), transparent 34%),
+      var(--mg-surface);
+  }
+
+  .macaw-graph-map::before {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    content: "";
+    pointer-events: none;
+    background-image: radial-gradient(circle, var(--mg-grid) 0.75px, transparent 0.9px);
+    background-size: 22px 22px;
+    -webkit-mask-image: radial-gradient(circle at center, #000 25%, transparent 82%);
+    mask-image: radial-gradient(circle at center, #000 25%, transparent 82%);
   }
 
   .macaw-graph-canvas,
@@ -2170,6 +2189,7 @@
     inset: 0;
     width: 100%;
     height: 100%;
+    z-index: 1;
   }
 
   .macaw-graph-canvas {
@@ -2187,12 +2207,36 @@
 
   .macaw-graph-cluster {
     pointer-events: none;
+    color: var(--mg-other);
+  }
+
+  .macaw-graph-cluster[data-category="core"] {
+    color: var(--mg-core);
+  }
+  .macaw-graph-cluster[data-category="entities"] {
+    color: var(--mg-entities);
+  }
+  .macaw-graph-cluster[data-category="projects"] {
+    color: var(--mg-projects);
+  }
+  .macaw-graph-cluster[data-category="preferences"] {
+    color: var(--mg-preferences);
+  }
+  .macaw-graph-cluster[data-category="facts"] {
+    color: var(--mg-facts);
+  }
+  .macaw-graph-cluster[data-category="skills"] {
+    color: var(--mg-skills);
   }
 
   .macaw-graph-cluster-ring {
-    fill: rgba(255, 255, 255, 0.025);
-    stroke: rgba(255, 255, 255, 0.08);
+    fill: currentColor;
+    fill-opacity: 0.025;
+    stroke: currentColor;
+    stroke-opacity: 0.18;
     stroke-width: 1;
+    stroke-dasharray: 4 5;
+    vector-effect: non-scaling-stroke;
   }
 
   .macaw-graph-cluster-name,
@@ -2207,17 +2251,17 @@
   .macaw-graph-cluster-name {
     font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.08em;
-  }
-
-  .macaw-graph-cluster-count {
-    font-size: 9px;
-    font-weight: 600;
+    letter-spacing: 0.11em;
+    paint-order: stroke fill;
+    stroke: var(--mg-surface);
+    stroke-width: 4px;
+    stroke-linejoin: round;
+    fill: currentColor;
   }
 
   .macaw-graph-node {
     cursor: pointer;
-    transition: opacity 140ms ease;
+    transition: opacity 160ms ease;
   }
 
   .macaw-graph-node.dim {
@@ -2235,15 +2279,47 @@
     pointer-events: all;
   }
 
+  .macaw-graph-node-halo {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 5;
+    opacity: 0;
+    pointer-events: none;
+    vector-effect: non-scaling-stroke;
+    transition: opacity 160ms ease;
+  }
+
   .macaw-graph-node-fill {
     fill: var(--mg-other);
     stroke: rgba(5, 8, 22, 0.6);
     stroke-width: 1;
     pointer-events: none;
+    vector-effect: non-scaling-stroke;
     transition:
-      r 160ms ease,
       stroke 160ms ease,
       filter 160ms ease;
+  }
+
+  .macaw-graph-node[data-category="core"] {
+    color: var(--mg-core);
+  }
+  .macaw-graph-node[data-category="entities"] {
+    color: var(--mg-entities);
+  }
+  .macaw-graph-node[data-category="projects"] {
+    color: var(--mg-projects);
+  }
+  .macaw-graph-node[data-category="preferences"] {
+    color: var(--mg-preferences);
+  }
+  .macaw-graph-node[data-category="facts"] {
+    color: var(--mg-facts);
+  }
+  .macaw-graph-node[data-category="skills"] {
+    color: var(--mg-skills);
+  }
+  .macaw-graph-node[data-category="other"] {
+    color: var(--mg-other);
   }
 
   .macaw-graph-node[data-category="core"] .macaw-graph-node-fill {
@@ -2276,18 +2352,36 @@
     stroke-width: 2.5;
   }
 
+  .macaw-graph-node:hover .macaw-graph-node-halo,
+  .macaw-graph-node:focus-visible .macaw-graph-node-halo,
+  .macaw-graph-node.selected .macaw-graph-node-halo {
+    opacity: 0.22;
+  }
+
   .macaw-graph-node-label {
     font-family: inherit;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 600;
     fill: rgba(226, 232, 240, 0.85);
-    text-anchor: middle;
+    opacity: 0;
     pointer-events: none;
     user-select: none;
     paint-order: stroke fill;
     stroke: rgba(5, 8, 22, 0.85);
-    stroke-width: 3px;
+    stroke-width: 4px;
     stroke-linejoin: round;
+    transition:
+      opacity 150ms ease,
+      transform 150ms ease;
+    transform: translateY(2px);
+  }
+
+  .macaw-graph-node-label.visible,
+  .macaw-graph-node:hover .macaw-graph-node-label,
+  .macaw-graph-node:focus-visible .macaw-graph-node-label,
+  .macaw-graph-node.selected .macaw-graph-node-label {
+    opacity: 1;
+    transform: translateY(0);
   }
 
   .macaw-graph-node:hover .macaw-graph-node-label,
@@ -2310,6 +2404,25 @@
     background: rgba(12, 18, 34, 0.8);
     font-size: 0.68rem;
     color: rgba(226, 232, 240, 0.7);
+    z-index: 2;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  .macaw-graph-hint {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    z-index: 2;
+    padding: 0.38rem 0.55rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    background: rgba(12, 18, 34, 0.72);
+    color: rgba(226, 232, 240, 0.58);
+    font-size: 0.63rem;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+    backdrop-filter: blur(12px);
   }
 
   .macaw-graph-legend-item {
@@ -4003,16 +4116,20 @@
     --mg-edge: rgba(15, 23, 42, 0.16);
     --mg-edge-dim: rgba(15, 23, 42, 0.06);
     --mg-edge-active: #2563eb;
+    --mg-edge-glow: rgba(37, 99, 235, 0.28);
+    --mg-grid: rgba(100, 116, 139, 0.14);
+    --mg-surface: #ffffff;
   }
 
   .macaw-graph-cluster-ring {
-    fill: rgba(15, 23, 42, 0.025);
-    stroke: rgba(15, 23, 42, 0.08);
+    fill-opacity: 0.025;
+    stroke: currentColor;
+    stroke-opacity: 0.16;
   }
 
   .macaw-graph-cluster-name,
   .macaw-graph-cluster-count {
-    fill: rgba(15, 23, 42, 0.42);
+    fill: currentColor;
   }
 
   .macaw-graph-node-fill {
@@ -4042,6 +4159,13 @@
     border-color: #e4e8ee;
     color: #334155;
     box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  }
+
+  .macaw-graph-hint {
+    border-color: #e4e8ee;
+    background: rgba(255, 255, 255, 0.86);
+    color: #64748b;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
   }
 
   .macaw-graph-legend-count {
@@ -4534,6 +4658,15 @@
     flex: 1 1 auto;
     min-height: 0;
     overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .macaw-graph-node,
+    .macaw-graph-node-fill,
+    .macaw-graph-node-halo,
+    .macaw-graph-node-label {
+      transition-duration: 0.01ms !important;
+    }
   }
 
   .macaw-wiki-main.graph .macaw-wiki-state {

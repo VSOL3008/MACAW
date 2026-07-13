@@ -66,6 +66,9 @@ type PagesData = {
 type PlotNode = GraphNode & {
   x: number
   y: number
+  lx: number
+  ly: number
+  anchor: "start" | "middle" | "end"
 }
 
 type GraphLine = GraphEdge & {
@@ -80,6 +83,7 @@ type Hub = {
   x: number
   y: number
   count: number
+  radius: number
 }
 
 type WikiState = {
@@ -102,6 +106,8 @@ type WikiState = {
 const CATEGORY_ORDER = ["core", "entities", "projects", "preferences", "facts", "skills", "other"] as const
 const GOLDEN = Math.PI * (3 - Math.sqrt(5))
 const LIMIT = 1200
+const WIDTH = 1200
+const HEIGHT = 840
 const EMPTY_STATUS: StatusData = {
   root: "",
   indexing: false,
@@ -194,6 +200,10 @@ function message(err: unknown) {
   return err instanceof Error ? err.message : String(err)
 }
 
+function shorten(value: string) {
+  return value.length > 34 ? `${value.slice(0, 33).trimEnd()}\u2026` : value
+}
+
 async function json<T>(res: Response, label: string): Promise<T> {
   const text = await res.text()
   if (!res.ok) throw new Error(`${label} fetch failed: ${res.status}`)
@@ -213,27 +223,36 @@ function layout(nodes: GraphNode[]): PlotNode[] {
     groups.set(cat, list)
   }
   const cats = [...groups.keys()].sort((a, b) => rank(a) - rank(b))
-  const ring = Math.max(180, Math.sqrt(nodes.length) * 24)
-  const out: PlotNode[] = []
+  const gap = nodes.length <= 32 ? 46 : nodes.length <= 120 ? 38 : nodes.length <= 400 ? 30 : 24
+  const sets = cats.map((cat) => ({
+    cat,
+    items: (groups.get(cat) ?? []).slice().sort((a, b) => score(b) - score(a) || a.id.localeCompare(b.id)),
+  }))
+  const reach = Math.max(...sets.map((set) => Math.sqrt(Math.max(0, set.items.length - 1)) * gap + 48))
+  const ring = sets.length === 1 ? 0 : Math.max(230, reach / (Math.sin(Math.PI / sets.length) * 0.86) + 28)
 
-  cats.forEach((cat, idx) => {
-    const items = (groups.get(cat) ?? []).slice().sort((a, b) => score(b) - score(a) || a.id.localeCompare(b.id))
-    const angle = (idx / Math.max(1, cats.length)) * Math.PI * 2 - Math.PI / 2
-    const cx = cats.length === 1 ? 0 : Math.cos(angle) * ring * 1.35
-    const cy = cats.length === 1 ? 0 : Math.sin(angle) * ring * 0.95
-
-    items.forEach((node, i) => {
-      const radius = Math.sqrt(i + 1) * 18
-      const turn = i * GOLDEN + idx * 0.7
-      out.push({
+  return sets.flatMap((set, idx) => {
+    const angle = (idx / Math.max(1, sets.length)) * Math.PI * 2 - Math.PI / 2
+    const cx = Math.cos(angle) * ring
+    const cy = Math.sin(angle) * ring * 0.86
+    return set.items.map((node, i) => {
+      const turn = Math.max(0, i - 1) * GOLDEN + idx * 0.55
+      const spread = Math.sqrt(i) * gap
+      const dx = Math.cos(turn) * spread
+      const dy = Math.sin(turn) * spread * 0.84
+      const r = radius(node)
+      const side = i > 0 && Math.abs(dx) > Math.abs(dy) * 0.8
+      const sign = dx < 0 ? -1 : 1
+      return {
         ...node,
-        x: cx + Math.cos(turn) * radius,
-        y: cy + Math.sin(turn) * radius * 0.82,
-      })
+        x: cx + dx,
+        y: cy + dy,
+        lx: side ? sign * (r + 8) : 0,
+        ly: side ? 4 : dy < 0 ? -r - 8 : r + 14,
+        anchor: side ? (sign < 0 ? "end" : "start") : "middle",
+      }
     })
   })
-
-  return out
 }
 
 function radius(node: GraphNode) {
@@ -245,7 +264,7 @@ function known(node: PlotNode | undefined): node is PlotNode {
 }
 
 function hubs(nodes: PlotNode[]): Hub[] {
-  const map = new Map<string, Hub>()
+  const map = new Map<string, Omit<Hub, "radius">>()
   for (const node of nodes) {
     const cat = bucket(node.category)
     const item = map.get(cat) ?? { category: cat, x: 0, y: 0, count: 0 }
@@ -255,11 +274,17 @@ function hubs(nodes: PlotNode[]): Hub[] {
     map.set(cat, item)
   }
   return [...map.values()]
-    .map((hub) => ({
-      ...hub,
-      x: hub.x / hub.count,
-      y: hub.y / hub.count,
-    }))
+    .map((hub) => {
+      const x = hub.x / hub.count
+      const y = hub.y / hub.count
+      const r = Math.max(
+        54,
+        ...nodes
+          .filter((node) => bucket(node.category) === hub.category)
+          .map((node) => Math.hypot(node.x - x, node.y - y) + radius(node) + 26),
+      )
+      return { ...hub, x, y, radius: r }
+    })
     .sort((a, b) => rank(a.category) - rank(b.category))
 }
 
@@ -377,13 +402,34 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
     )
   })
   const labels = createMemo(() => {
-    const set = new Set(top())
-    if (sim().length <= 80) {
-      for (const node of sim()) set.add(node.id)
-    }
-    if (state.selected) {
-      set.add(state.selected)
-      for (const node of rel()) set.add(node.id)
+    const primary = (sim().length <= 48 ? sim() : sim().filter((node) => top().has(node.id)))
+      .slice()
+      .sort((a, b) => score(b) - score(a) || a.id.localeCompare(b.id))
+    const pool = state.selected ? [selected(), ...rel().slice(0, 16), ...primary].filter(known) : primary
+    const set = new Set<string>()
+    const boxes: { x: number; y: number; w: number; h: number }[] = []
+    const limit = Math.min(28, Math.max(10, Math.round(Math.sqrt(sim().length) * 3)))
+
+    for (const node of pool) {
+      if (set.has(node.id) || set.size >= limit) continue
+      const w = Math.min(190, Math.max(44, shorten(node.label).length * 6.2))
+      const x = node.x + node.lx - (node.anchor === "middle" ? w / 2 : node.anchor === "end" ? w : 0)
+      const box = { x, y: node.y + node.ly - 12, w, h: 17 }
+      const hit = boxes.some(
+        (item) =>
+          box.x < item.x + item.w + 7 &&
+          box.x + box.w + 7 > item.x &&
+          box.y < item.y + item.h + 5 &&
+          box.y + box.h + 5 > item.y,
+      )
+      const cover = sim().some((item) => {
+        if (item.id === node.id) return false
+        const r = radius(item) + 5
+        return box.x < item.x + r && box.x + box.w > item.x - r && box.y < item.y + r && box.y + box.h > item.y - r
+      })
+      if ((hit || cover) && node.id !== state.selected) continue
+      boxes.push(box)
+      set.add(node.id)
     }
     return set
   })
@@ -489,6 +535,20 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
     return style.getPropertyValue(key).trim() || fallback
   }
 
+  function trace(ctx: CanvasRenderingContext2D, row: GraphLine, fit: number, ox: number, oy: number) {
+    const x1 = (row.x1 * view.scale + view.tx + WIDTH / 2) * fit + ox
+    const y1 = (row.y1 * view.scale + view.ty + HEIGHT / 2) * fit + oy
+    const x2 = (row.x2 * view.scale + view.tx + WIDTH / 2) * fit + ox
+    const y2 = (row.y2 * view.scale + view.ty + HEIGHT / 2) * fit + oy
+    const dx = x2 - x1
+    const dy = y2 - y1
+    const len = Math.max(1, Math.hypot(dx, dy))
+    const hash = row.source.length + row.target.length + row.source.charCodeAt(0) + row.target.charCodeAt(0)
+    const bend = Math.min(22, len * 0.055) * (hash % 2 === 0 ? 1 : -1)
+    ctx.moveTo(x1, y1)
+    ctx.quadraticCurveTo((x1 + x2) / 2 - (dy / len) * bend, (y1 + y2) / 2 + (dx / len) * bend, x2, y2)
+  }
+
   function paint() {
     const el = canvas
     const ctx = el?.getContext("2d")
@@ -504,9 +564,9 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
 
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
     ctx.clearRect(0, 0, w, h)
-    const fit = Math.min(w / 1200, h / 840)
-    const ox = (w - 1200 * fit) / 2
-    const oy = (h - 840 * fit) / 2
+    const fit = Math.min(w / WIDTH, h / HEIGHT)
+    const ox = (w - WIDTH * fit) / 2
+    const oy = (h - HEIGHT * fit) / 2
     const style = getComputedStyle(el)
     const id = state.selected
     const rows = lines()
@@ -516,8 +576,7 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
     ctx.beginPath()
     for (const row of rows) {
       if (id && (row.source === id || row.target === id)) continue
-      ctx.moveTo((row.x1 * view.scale + view.tx + 600) * fit + ox, (row.y1 * view.scale + view.ty + 420) * fit + oy)
-      ctx.lineTo((row.x2 * view.scale + view.tx + 600) * fit + ox, (row.y2 * view.scale + view.ty + 420) * fit + oy)
+      trace(ctx, row, fit, ox, oy)
     }
     ctx.strokeStyle = id
       ? color(style, "--mg-edge-dim", "rgba(15, 23, 42, 0.08)")
@@ -529,12 +588,14 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
     ctx.beginPath()
     for (const row of rows) {
       if (row.source !== id && row.target !== id) continue
-      ctx.moveTo((row.x1 * view.scale + view.tx + 600) * fit + ox, (row.y1 * view.scale + view.ty + 420) * fit + oy)
-      ctx.lineTo((row.x2 * view.scale + view.tx + 600) * fit + ox, (row.y2 * view.scale + view.ty + 420) * fit + oy)
+      trace(ctx, row, fit, ox, oy)
     }
     ctx.strokeStyle = color(style, "--mg-edge-active", "#2563eb")
-    ctx.lineWidth = 1.8
+    ctx.lineWidth = 2
+    ctx.shadowColor = color(style, "--mg-edge-glow", "rgba(37, 99, 235, 0.3)")
+    ctx.shadowBlur = 7
     ctx.stroke()
+    ctx.shadowBlur = 0
   }
 
   function queue() {
@@ -575,10 +636,10 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
     const cy = (minY + maxY) / 2
     const halfW = Math.max(40, (maxX - minX) / 2)
     const halfH = Math.max(40, (maxY - minY) / 2)
-    const pad = 90
-    const sx = (560 - pad) / halfW
-    const sy = (420 - pad) / halfH
-    const scale = Math.min(2.25, Math.max(0.2, Math.min(sx, sy)))
+    const pad = 92
+    const sx = (WIDTH / 2 - pad) / halfW
+    const sy = (HEIGHT / 2 - pad) / halfH
+    const scale = Math.min(1.85, Math.max(0.2, Math.min(sx, sy)))
     setView({ scale, tx: -cx * scale, ty: -cy * scale })
   }
 
@@ -646,41 +707,55 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
   let panning = false
   let pan = { x: 0, y: 0, tx: 0, ty: 0 }
 
+  function point(x: number, y: number) {
+    if (!svg) return
+    const box = svg.getBoundingClientRect()
+    const fit = Math.min(box.width / WIDTH, box.height / HEIGHT)
+    return {
+      x: (x - box.left - (box.width - WIDTH * fit) / 2) / fit - WIDTH / 2,
+      y: (y - box.top - (box.height - HEIGHT * fit) / 2) / fit - HEIGHT / 2,
+    }
+  }
+
   function onWheel(event: WheelEvent) {
     event.preventDefault()
     const factor = event.deltaY > 0 ? 0.9 : 1.1
     const next = Math.min(3, Math.max(0.2, view.scale * factor))
-    if (!svg) return
-    const box = svg.getBoundingClientRect()
-    const cx = event.clientX - box.left - box.width / 2
-    const cy = event.clientY - box.top - box.height / 2
-    const wx = (cx - view.tx) / view.scale
-    const wy = (cy - view.ty) / view.scale
-    setView({ scale: next, tx: cx - wx * next, ty: cy - wy * next })
+    const cursor = point(event.clientX, event.clientY)
+    if (!cursor) return
+    const x = (cursor.x - view.tx) / view.scale
+    const y = (cursor.y - view.ty) / view.scale
+    setView({ scale: next, tx: cursor.x - x * next, ty: cursor.y - y * next })
   }
 
   function onCanvasPointerDown(event: PointerEvent) {
     if ((event.target as Element).closest("[data-node]")) return
+    const cursor = point(event.clientX, event.clientY)
+    if (!cursor) return
     panning = true
-    pan = { x: event.clientX, y: event.clientY, tx: view.tx, ty: view.ty }
+    pan = { ...cursor, tx: view.tx, ty: view.ty }
     ;(event.currentTarget as Element).setPointerCapture(event.pointerId)
   }
 
   function onCanvasPointerMove(event: PointerEvent) {
     if (!panning) return
+    const cursor = point(event.clientX, event.clientY)
+    if (!cursor) return
     setView({
-      tx: pan.tx + (event.clientX - pan.x),
-      ty: pan.ty + (event.clientY - pan.y),
+      tx: pan.tx + cursor.x - pan.x,
+      ty: pan.ty + cursor.y - pan.y,
     })
   }
 
   function onCanvasPointerUp(event: PointerEvent) {
     panning = false
-    try {
-      ;(event.currentTarget as Element).releasePointerCapture(event.pointerId)
-    } catch {
-      return
-    }
+    const el = event.currentTarget as Element
+    if (el.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId)
+  }
+
+  function onDouble(event: MouseEvent) {
+    if ((event.target as Element).closest("[data-node]")) return
+    fit()
   }
 
   function onNodeClick(event: MouseEvent, id: string) {
@@ -694,7 +769,7 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
     setState("selected", id)
   }
 
-  const viewBox = () => "-600 -420 1200 840"
+  const viewBox = () => `${-WIDTH / 2} ${-HEIGHT / 2} ${WIDTH} ${HEIGHT}`
 
   return (
     <Show when={props.open}>
@@ -850,7 +925,9 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
                       data-component="macaw-wiki-graph-nodes"
                       viewBox={viewBox()}
                       preserveAspectRatio="xMidYMid meet"
+                      aria-label="Memory graph. Scroll to zoom, drag empty space to pan, and select a node for details."
                       onWheel={onWheel}
+                      onDblClick={onDouble}
                       onPointerDown={onCanvasPointerDown}
                       onPointerMove={onCanvasPointerMove}
                       onPointerUp={onCanvasPointerUp}
@@ -865,12 +942,9 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
                                 data-category={item.category}
                                 transform={`translate(${item.x} ${item.y})`}
                               >
-                                <circle class="macaw-graph-cluster-ring" r={Math.max(48, Math.sqrt(item.count) * 16)} />
-                                <text class="macaw-graph-cluster-name" y="-3">
-                                  {item.category}
-                                </text>
-                                <text class="macaw-graph-cluster-count" y="13">
-                                  {item.count}
+                                <circle class="macaw-graph-cluster-ring" r={item.radius} />
+                                <text class="macaw-graph-cluster-name" y={-item.radius - 13}>
+                                  {item.category} · {item.count}
                                 </text>
                               </g>
                             )}
@@ -904,12 +978,18 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
                                   onKeyDown={(event) => onNodeKey(event, node.id)}
                                 >
                                   <circle class="macaw-graph-node-hit" r={Math.max(r() + 7, 14)} />
+                                  <circle class="macaw-graph-node-halo" r={r() + 5} />
                                   <circle class="macaw-graph-node-fill" r={r()} />
-                                  <Show when={labels().has(node.id)}>
-                                    <text class="macaw-graph-node-label" y={r() + 12}>
-                                      {node.label}
-                                    </text>
-                                  </Show>
+                                  <text
+                                    class="macaw-graph-node-label"
+                                    classList={{ visible: labels().has(node.id) }}
+                                    x={node.lx}
+                                    y={node.ly}
+                                    text-anchor={node.anchor}
+                                  >
+                                    {shorten(node.label)}
+                                  </text>
+                                  <title>{node.label}</title>
                                 </g>
                               )
                             }}
@@ -929,6 +1009,9 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
                           </Show>
                         )}
                       </For>
+                    </div>
+                    <div class="macaw-graph-hint" aria-hidden="true">
+                      Scroll to zoom · drag to pan · double-click to fit
                     </div>
                   </div>
                 </Show>
