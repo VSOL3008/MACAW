@@ -774,58 +774,65 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
   return (
     <Show when={props.open}>
       <div class="macaw-wiki-overlay" role="dialog" aria-label="MACAW wiki">
-        <div class="macaw-wiki-header">
-          <span class="macaw-wiki-title">MACAW Wiki</span>
-          <span class="macaw-wiki-count">
-            {format(state.status.pages)} pages, {format(state.status.links)} links
-          </span>
-          <input
-            type="search"
-            class="macaw-wiki-search"
-            placeholder="Search pages..."
-            value={state.raw}
-            onInput={(event) => setState("raw", event.currentTarget.value)}
-          />
-          <div class="macaw-wiki-modes" role="tablist">
-            <button
-              type="button"
-              class="macaw-wiki-mode"
-              classList={{ active: state.mode === "reader" }}
-              onClick={() => setState("mode", "reader")}
-              role="tab"
-              aria-selected={state.mode === "reader"}
-            >
-              Reader
-            </button>
-            <button
-              type="button"
-              class="macaw-wiki-mode"
-              classList={{ active: state.mode === "graph" }}
-              onClick={() => {
-                setState("mode", "graph")
-              }}
-              role="tab"
-              aria-selected={state.mode === "graph"}
-            >
-              Graph
+        <div class="macaw-wiki-card">
+          <div class="macaw-wiki-header">
+            <div class="macaw-wiki-copy">
+              <span class="macaw-wiki-title">MACAW Wiki</span>
+              <span class="macaw-wiki-count">
+                {format(state.status.pages)} pages, {format(state.status.links)} links
+              </span>
+            </div>
+            <button type="button" class="macaw-wiki-close" onClick={() => props.onClose()} aria-label="Close">
+              ×
             </button>
           </div>
-          <Show when={state.mode === "graph"}>
-            <button type="button" class="macaw-wiki-refresh" onClick={fit} title="Fit graph to view">
-              Fit
-            </button>
-            <button type="button" class="macaw-wiki-refresh" onClick={reset} title="Reset graph view">
-              Reset
-            </button>
-          </Show>
-          <button type="button" class="macaw-wiki-refresh" onClick={refresh}>
-            Refresh
-          </button>
-          <button type="button" class="macaw-wiki-close" onClick={() => props.onClose()} aria-label="Close">
-            x
-          </button>
-        </div>
-        <div class="macaw-wiki-body">
+          <div class="macaw-wiki-toolbar">
+            <input
+              type="search"
+              class="macaw-wiki-search"
+              placeholder="Search pages..."
+              value={state.raw}
+              onInput={(event) => setState("raw", event.currentTarget.value)}
+            />
+            <div class="macaw-wiki-modes" role="tablist">
+              <button
+                type="button"
+                class="macaw-wiki-mode"
+                classList={{ active: state.mode === "reader" }}
+                onClick={() => setState("mode", "reader")}
+                role="tab"
+                aria-selected={state.mode === "reader"}
+              >
+                Reader
+              </button>
+              <button
+                type="button"
+                class="macaw-wiki-mode"
+                classList={{ active: state.mode === "graph" }}
+                onClick={() => {
+                  setState("mode", "graph")
+                }}
+                role="tab"
+                aria-selected={state.mode === "graph"}
+              >
+                Graph
+              </button>
+            </div>
+            <div class="macaw-wiki-actions">
+              <Show when={state.mode === "graph"}>
+                <button type="button" class="macaw-wiki-refresh" onClick={fit} title="Fit graph to view">
+                  Fit
+                </button>
+                <button type="button" class="macaw-wiki-refresh" onClick={reset} title="Reset graph view">
+                  Reset
+                </button>
+              </Show>
+              <button type="button" class="macaw-wiki-refresh" onClick={refresh}>
+                Refresh
+              </button>
+            </div>
+          </div>
+          <div class="macaw-wiki-body">
           <aside class="macaw-wiki-side">
             <Show when={note()}>{(text) => <div class="macaw-wiki-side-note">{text()}</div>}</Show>
             <Show when={state.paging && state.pages.length === 0}>
@@ -1087,6 +1094,7 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
               </aside>
             </Show>
           </main>
+          </div>
         </div>
       </div>
     </Show>
