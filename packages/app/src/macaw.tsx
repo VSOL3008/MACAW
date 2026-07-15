@@ -53,12 +53,20 @@ type Attachment = {
   url: string
 }
 
+type Notify = {
+  idle: boolean
+  question: boolean
+  permission: boolean
+}
+
 type Settings = {
   kind: "ollama" | "azure"
   url: string
   key: string
   model: string
   name: string
+  notify: Notify
+  fallback: boolean
 }
 
 const AZURE = "azure-foundry"
@@ -127,7 +135,7 @@ function fault(err?: { name?: string; data?: { message?: string } }) {
   return err?.data?.message || err?.name || "An error occurred."
 }
 
-function seed(cfg?: Config, host = ""): Settings {
+function seed(cfg?: Config, host = "", note = alerts(), fallback = loadAutoFallback()): Settings {
   const item = cfg?.provider?.[AZURE]
   const pick = split(host)
   const url = typeof item?.options?.baseURL === "string" ? item.options.baseURL : read("macaw.azure.url") ?? ""
@@ -138,6 +146,8 @@ function seed(cfg?: Config, host = ""): Settings {
     model:
       (pick.provider === AZURE ? pick.model : Object.keys(item?.models ?? {})[0]) || read("macaw.azure.model") || AZURE_MODEL,
     name: item?.name ?? read("macaw.azure.name") ?? AZURE_NAME,
+    notify: { ...note },
+    fallback,
   }
 }
 
@@ -248,6 +258,14 @@ function loadAutoFallback(): boolean {
 
 function loadNotify(name: string) {
   return read(`macaw.notify.${name}`) !== "off"
+}
+
+function alerts(): Notify {
+  return {
+    idle: loadNotify("idle"),
+    question: loadNotify("question"),
+    permission: loadNotify("permission"),
+  }
 }
 
 type Toast = {
@@ -416,11 +434,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     showTasks: false,
     favorites: loadFavorites(),
     autoFallback: loadAutoFallback(),
-    notify: {
-      idle: loadNotify("idle"),
-      question: loadNotify("question"),
-      permission: loadNotify("permission"),
-    },
+    notify: alerts(),
     toasts: [] as Toast[],
     hostOpen: false,
     settingsOpen: false,
@@ -1052,7 +1066,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
       settingsOpen: true,
       settingsBusy: false,
       settingsError: "",
-      settings: seed(undefined, state.host),
+      settings: seed(undefined, state.host, state.notify, state.autoFallback),
     })
     const res = await root()
       .global.config.get()
@@ -1060,7 +1074,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
         setState("settingsError", err instanceof Error ? err.message : String(err))
         return undefined
       })
-    if (res?.data) setState("settings", seed(res.data, state.host))
+    if (res?.data) setState("settings", seed(res.data, state.host, state.settings.notify, state.settings.fallback))
   }
 
   async function saveSettings() {
@@ -1160,6 +1174,8 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
           ? pack(hit)
           : undefined,
     )
+    setState("notify", { ...form.notify })
+    setState("autoFallback", form.fallback)
     closeSettings()
   }
 
@@ -1868,6 +1884,9 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
         >
           <form
             class="macaw-settings-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="macaw-settings-title"
             onSubmit={(event) => {
               event.preventDefault()
               void saveSettings()
@@ -1875,83 +1894,168 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
           >
             <div class="macaw-settings-head">
               <div class="macaw-settings-copy">
-                <div class="macaw-settings-title">Settings</div>
-                <div class="macaw-settings-subtitle">Provider</div>
+                <div id="macaw-settings-title" class="macaw-settings-title">
+                  Settings
+                </div>
+                <div class="macaw-settings-subtitle">Workspace preferences</div>
               </div>
               <button type="button" class="macaw-settings-close" aria-label="Close settings" onClick={closeSettings}>
-                x
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M5 5l10 10M15 5L5 15" />
+                </svg>
               </button>
             </div>
-            <div class="macaw-settings-kind">
-              <button
-                type="button"
-                class="macaw-settings-pick"
-                classList={{ active: state.settings.kind === "ollama" }}
-                onClick={() => {
-                  setState("settings", "kind", "ollama")
-                  setState("settingsError", "")
-                }}
-              >
-                Local Ollama
-              </button>
-              <button
-                type="button"
-                class="macaw-settings-pick"
-                classList={{ active: state.settings.kind === "azure" }}
-                onClick={() => {
-                  setState("settings", "kind", "azure")
-                  setState("settingsError", "")
-                }}
-              >
-                Azure AI Foundry
-              </button>
+            <div class="macaw-settings-body">
+              <section class="macaw-settings-section" aria-labelledby="macaw-settings-provider">
+                <div class="macaw-settings-section-head">
+                  <div id="macaw-settings-provider" class="macaw-settings-section-title">
+                    Provider
+                  </div>
+                  <div class="macaw-settings-section-note">Choose where Macaw sends your prompts.</div>
+                </div>
+                <div class="macaw-settings-kind">
+                  <button
+                    type="button"
+                    class="macaw-settings-pick"
+                    classList={{ active: state.settings.kind === "ollama" }}
+                    onClick={() => {
+                      setState("settings", "kind", "ollama")
+                      setState("settingsError", "")
+                    }}
+                  >
+                    Local Ollama
+                  </button>
+                  <button
+                    type="button"
+                    class="macaw-settings-pick"
+                    classList={{ active: state.settings.kind === "azure" }}
+                    onClick={() => {
+                      setState("settings", "kind", "azure")
+                      setState("settingsError", "")
+                    }}
+                  >
+                    Azure AI Foundry
+                  </button>
+                </div>
+                <Show when={state.settings.kind === "azure"}>
+                  <div class="macaw-settings-fields">
+                    <label class="macaw-settings-field">
+                      <span>Proxy URL</span>
+                      <input
+                        value={state.settings.url}
+                        placeholder="http://127.0.0.1:PORT/v1"
+                        onInput={(event) => setState("settings", "url", event.currentTarget.value)}
+                      />
+                    </label>
+                    <label class="macaw-settings-field">
+                      <span>API Key</span>
+                      <input
+                        type="password"
+                        value={state.settings.key}
+                        placeholder="Optional"
+                        onInput={(event) => setState("settings", "key", event.currentTarget.value)}
+                      />
+                    </label>
+                    <label class="macaw-settings-field">
+                      <span>Model</span>
+                      <input
+                        value={state.settings.model}
+                        placeholder={AZURE_MODEL}
+                        onInput={(event) => setState("settings", "model", event.currentTarget.value)}
+                      />
+                    </label>
+                    <label class="macaw-settings-field">
+                      <span>Name</span>
+                      <input
+                        value={state.settings.name}
+                        placeholder={AZURE_NAME}
+                        onInput={(event) => setState("settings", "name", event.currentTarget.value)}
+                      />
+                    </label>
+                  </div>
+                </Show>
+              </section>
+
+              <section class="macaw-settings-section" aria-labelledby="macaw-settings-notifications">
+                <div class="macaw-settings-section-head">
+                  <div id="macaw-settings-notifications" class="macaw-settings-section-title">
+                    Notifications
+                  </div>
+                  <div class="macaw-settings-section-note">Choose when Macaw should get your attention.</div>
+                </div>
+                <div class="macaw-settings-toggles">
+                  <label class="macaw-settings-toggle">
+                    <span class="macaw-settings-toggle-copy">
+                      <span>Reply finished</span>
+                      <small>When the agent completes a response.</small>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={state.settings.notify.idle}
+                      onChange={(event) => setState("settings", "notify", "idle", event.currentTarget.checked)}
+                    />
+                    <span class="macaw-settings-switch" aria-hidden="true" />
+                  </label>
+                  <label class="macaw-settings-toggle">
+                    <span class="macaw-settings-toggle-copy">
+                      <span>Agent questions</span>
+                      <small>When the agent needs more information.</small>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={state.settings.notify.question}
+                      onChange={(event) => setState("settings", "notify", "question", event.currentTarget.checked)}
+                    />
+                    <span class="macaw-settings-switch" aria-hidden="true" />
+                  </label>
+                  <label class="macaw-settings-toggle">
+                    <span class="macaw-settings-toggle-copy">
+                      <span>Permission requests</span>
+                      <small>When an action is waiting for approval.</small>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={state.settings.notify.permission}
+                      onChange={(event) => setState("settings", "notify", "permission", event.currentTarget.checked)}
+                    />
+                    <span class="macaw-settings-switch" aria-hidden="true" />
+                  </label>
+                </div>
+              </section>
+
+              <section class="macaw-settings-section" aria-labelledby="macaw-settings-behavior">
+                <div class="macaw-settings-section-head">
+                  <div id="macaw-settings-behavior" class="macaw-settings-section-title">
+                    Behavior
+                  </div>
+                  <div class="macaw-settings-section-note">Control how Macaw handles stalled responses.</div>
+                </div>
+                <div class="macaw-settings-toggles">
+                  <label class="macaw-settings-toggle">
+                    <span class="macaw-settings-toggle-copy">
+                      <span>Auto-fallback on stall</span>
+                      <small>Switch to a favourite model after 90 seconds of silence.</small>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={state.settings.fallback}
+                      onChange={(event) => setState("settings", "fallback", event.currentTarget.checked)}
+                    />
+                    <span class="macaw-settings-switch" aria-hidden="true" />
+                  </label>
+                </div>
+              </section>
+
+              <Show when={state.settingsError}>
+                <div class="macaw-settings-error">{state.settingsError}</div>
+              </Show>
             </div>
-            <Show when={state.settings.kind === "azure"}>
-              <div class="macaw-settings-fields">
-                <label class="macaw-settings-field">
-                  <span>Proxy URL</span>
-                  <input
-                    value={state.settings.url}
-                    placeholder="http://127.0.0.1:PORT/v1"
-                    onInput={(event) => setState("settings", "url", event.currentTarget.value)}
-                  />
-                </label>
-                <label class="macaw-settings-field">
-                  <span>API Key</span>
-                  <input
-                    type="password"
-                    value={state.settings.key}
-                    placeholder="Optional"
-                    onInput={(event) => setState("settings", "key", event.currentTarget.value)}
-                  />
-                </label>
-                <label class="macaw-settings-field">
-                  <span>Model</span>
-                  <input
-                    value={state.settings.model}
-                    placeholder={AZURE_MODEL}
-                    onInput={(event) => setState("settings", "model", event.currentTarget.value)}
-                  />
-                </label>
-                <label class="macaw-settings-field">
-                  <span>Name</span>
-                  <input
-                    value={state.settings.name}
-                    placeholder={AZURE_NAME}
-                    onInput={(event) => setState("settings", "name", event.currentTarget.value)}
-                  />
-                </label>
-              </div>
-            </Show>
-            <Show when={state.settingsError}>
-              <div class="macaw-settings-error">{state.settingsError}</div>
-            </Show>
             <div class="macaw-settings-actions">
               <button type="button" class="macaw-settings-cancel" onClick={closeSettings}>
                 Cancel
               </button>
               <button type="submit" class="macaw-settings-save" disabled={state.settingsBusy}>
-                {state.settingsBusy ? "Saving..." : "Save"}
+                {state.settingsBusy ? "Saving..." : "Save changes"}
               </button>
             </div>
           </form>
@@ -2267,7 +2371,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
                           <span />
                         </div>
                       </div>
-                      </div>
+                    </div>
                     </div>
                   </>
                 </Show>
@@ -2503,41 +2607,6 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
             </Show>
           </div>
           <div class="macaw-url">{url()}</div>
-          <label
-            class="macaw-fallback-toggle"
-            title="If on, switch to a favourite model after 90s of silence (useful for cloud APIs, harmful for slow-loading Ollama models)."
-          >
-            <input
-              type="checkbox"
-              checked={state.autoFallback}
-              onChange={(event) => setState("autoFallback", event.currentTarget.checked)}
-            />
-            <span>Auto-fallback on stall</span>
-          </label>
-          <label class="macaw-fallback-toggle" title="Notify when the agent finishes replying.">
-            <input
-              type="checkbox"
-              checked={state.notify.idle}
-              onChange={(event) => setState("notify", "idle", event.currentTarget.checked)}
-            />
-            <span>Notify when agent reply finishes</span>
-          </label>
-          <label class="macaw-fallback-toggle" title="Notify when the agent asks a question.">
-            <input
-              type="checkbox"
-              checked={state.notify.question}
-              onChange={(event) => setState("notify", "question", event.currentTarget.checked)}
-            />
-            <span>Notify on agent questions</span>
-          </label>
-          <label class="macaw-fallback-toggle" title="Notify when the agent requests permission.">
-            <input
-              type="checkbox"
-              checked={state.notify.permission}
-              onChange={(event) => setState("notify", "permission", event.currentTarget.checked)}
-            />
-            <span>Notify on permission requests</span>
-          </label>
         </div>
 
         <div class="macaw-tabs">

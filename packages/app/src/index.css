@@ -26,6 +26,361 @@
   }
 }
 
+/* Settings use the same quiet, tactile surface language as the chat composer. */
+@layer macaw {
+  .macaw-settings-btn:hover {
+    border-color: #c9cdd4;
+    background: #f8f8fa;
+    color: #1d1d1f;
+  }
+
+  .macaw-settings-overlay {
+    align-items: center;
+    padding: 18px;
+    background: rgba(31, 35, 43, 0.16);
+    backdrop-filter: blur(3px);
+  }
+
+  .macaw-settings-card {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    width: min(600px, 100%);
+    max-height: min(760px, calc(100dvh - 36px));
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid #dfe3e8;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow:
+      0 18px 50px rgba(15, 23, 42, 0.14),
+      0 2px 8px rgba(15, 23, 42, 0.06);
+  }
+
+  .macaw-settings-head {
+    min-height: 56px;
+    padding: 0 14px 0 18px;
+    border-bottom: 1px solid #eceef1;
+  }
+
+  .macaw-settings-copy {
+    gap: 1px;
+  }
+
+  .macaw-settings-title {
+    color: #1d1d1f;
+    font-size: 14px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .macaw-settings-subtitle {
+    color: #8a8a8f;
+    font-size: 11px;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .macaw-settings-close {
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #77777c;
+  }
+
+  .macaw-settings-close svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+  }
+
+  .macaw-settings-close:hover {
+    background: #f2f3f5;
+    color: #1d1d1f;
+  }
+
+  .macaw-settings-body {
+    display: grid;
+    gap: 18px;
+    padding: 18px;
+    overflow: auto;
+  }
+
+  .macaw-settings-section,
+  .macaw-settings-section-head,
+  .macaw-settings-fields {
+    display: grid;
+  }
+
+  .macaw-settings-section {
+    gap: 11px;
+  }
+
+  .macaw-settings-section-head {
+    gap: 2px;
+  }
+
+  .macaw-settings-section-title {
+    color: #29292c;
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .macaw-settings-section-note {
+    color: #8a8a8f;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .macaw-settings-kind {
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid #e3e5e9;
+    border-radius: 9px;
+    background: #f5f5f7;
+  }
+
+  .macaw-settings-pick {
+    min-height: 34px;
+    padding: 6px 10px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: #68686d;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  .macaw-settings-pick:hover {
+    color: #1d1d1f;
+  }
+
+  .macaw-settings-pick.active {
+    border-color: #d9dce1;
+    background: #fff;
+    color: #1d1d1f;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.07);
+  }
+
+  .macaw-settings-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .macaw-settings-field {
+    gap: 5px;
+  }
+
+  .macaw-settings-field:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .macaw-settings-field span {
+    color: #77777c;
+    font-size: 10px;
+    font-weight: 550;
+    letter-spacing: 0.02em;
+    text-transform: none;
+  }
+
+  .macaw-settings-field input {
+    box-sizing: border-box;
+    width: 100%;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid #e1e4e8;
+    border-radius: 8px;
+    background: #fff;
+    color: #1d1d1f;
+    font-size: 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  }
+
+  .macaw-settings-field input:hover {
+    border-color: #cfd3d9;
+  }
+
+  .macaw-settings-field input:focus {
+    border-color: #b8bdc5;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(31, 35, 43, 0.06);
+    outline: none;
+  }
+
+  .macaw-settings-toggles {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid #e3e5e9;
+    border-radius: 9px;
+    background: #fff;
+  }
+
+  .macaw-settings-toggle {
+    position: relative;
+    display: flex;
+    min-height: 48px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 8px 11px;
+    cursor: pointer;
+  }
+
+  .macaw-settings-toggle + .macaw-settings-toggle {
+    border-top: 1px solid #eceef1;
+  }
+
+  .macaw-settings-toggle:hover {
+    background: #fafafa;
+  }
+
+  .macaw-settings-toggle-copy {
+    display: grid;
+    gap: 1px;
+    color: #29292c;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .macaw-settings-toggle-copy small {
+    color: #8a8a8f;
+    font-size: 10px;
+    font-weight: 400;
+  }
+
+  .macaw-settings-toggle input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+  }
+
+  .macaw-settings-switch {
+    position: relative;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 18px;
+    border: 1px solid #d0d3d8;
+    border-radius: 999px;
+    background: #e7e8eb;
+    transition:
+      border-color 140ms ease,
+      background 140ms ease;
+  }
+
+  .macaw-settings-switch::after {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.2);
+    content: "";
+    transition: transform 140ms ease;
+  }
+
+  .macaw-settings-toggle input:checked + .macaw-settings-switch {
+    border-color: #2f3033;
+    background: #2f3033;
+  }
+
+  .macaw-settings-toggle input:checked + .macaw-settings-switch::after {
+    transform: translateX(14px);
+  }
+
+  .macaw-settings-toggle input:focus-visible + .macaw-settings-switch {
+    outline: 3px solid rgba(31, 35, 43, 0.12);
+    outline-offset: 2px;
+  }
+
+  .macaw-settings-error {
+    padding: 8px 10px;
+    border: 1px solid #f0c9c9;
+    border-radius: 8px;
+    background: #fff7f7;
+    color: #a33b3b;
+    font-size: 11px;
+  }
+
+  .macaw-settings-actions {
+    min-height: 54px;
+    justify-content: flex-end;
+    padding: 0 14px;
+    border-top: 1px solid #eceef1;
+    background: #fafafa;
+  }
+
+  .macaw-settings-cancel,
+  .macaw-settings-save {
+    min-height: 32px;
+    padding: 5px 11px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .macaw-settings-cancel {
+    border-color: transparent;
+    background: transparent;
+    color: #68686d;
+  }
+
+  .macaw-settings-cancel:hover {
+    background: #f0f1f3;
+    color: #1d1d1f;
+  }
+
+  .macaw-settings-save {
+    border: 1px solid #c8ccd2;
+    background: #fff;
+    color: #1d1d1f;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+
+  .macaw-settings-save:hover {
+    border-color: #9da3ac;
+    background: #f7f7f8;
+  }
+
+  .macaw-settings-save:disabled {
+    border-color: #e1e3e7;
+    background: #f5f5f6;
+    color: #aaaeb5;
+    box-shadow: none;
+  }
+
+  @media (max-width: 639px) {
+    .macaw-settings-overlay {
+      padding: 8px;
+    }
+
+    .macaw-settings-card {
+      max-height: calc(100dvh - 16px);
+      border-radius: 12px;
+    }
+
+    .macaw-settings-body {
+      padding: 14px;
+    }
+
+    .macaw-settings-fields {
+      grid-template-columns: 1fr;
+    }
+
+    .macaw-settings-field:first-child {
+      grid-column: auto;
+    }
+  }
+}
+
 /* MACAW workspace: calm, aligned desktop surfaces with focused narrow-screen panels. */
 @layer macaw {
   .macaw-shell {
@@ -620,39 +975,6 @@
     min-height: var(--macaw-compact);
     padding: 5px 7px;
     font-size: 12px;
-  }
-
-  .macaw-settings-card {
-    gap: 10px;
-    padding: 14px;
-    border-radius: 12px;
-  }
-
-  .macaw-settings-kind {
-    gap: 6px;
-  }
-
-  .macaw-settings-pick {
-    padding: 7px 9px;
-    border-radius: 7px;
-  }
-
-  .macaw-settings-field input {
-    height: var(--macaw-control);
-    border-radius: 7px;
-  }
-
-  .macaw-settings-cancel,
-  .macaw-settings-save {
-    min-height: 30px;
-    padding: 5px 10px;
-    border-radius: 7px;
-  }
-
-  .macaw-settings-close {
-    width: var(--macaw-compact);
-    height: var(--macaw-compact);
-    border-radius: 7px;
   }
 
   .macaw-question,
