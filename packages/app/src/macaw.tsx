@@ -386,6 +386,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
   const cmd = useCommand()
   const platform = usePlatform()
   let picker: HTMLInputElement | undefined
+  let input: HTMLTextAreaElement | undefined
   const [state, setState] = createStore({
     ready: false,
     connected: false,
@@ -501,18 +502,11 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     }
     return map
   })
-  const requests = createMemo(() => state.messages.filter((row) => row.info.role === "assistant").length)
   const running = createMemo(() => new Set(steps().filter((step) => step.state.status === "running").map((step) => step.tool)))
   const url = createMemo(() => {
     const pick = split(state.host)
     return state.providers.find((provider) => provider.id === pick.provider)?.options.baseURL?.toString() ?? ""
   })
-  const stats = createMemo(() => [
-    pretty(currentStatus()).toLowerCase(),
-    `${requests()} req`,
-    `${steps().length} steps`,
-    `${usage().size} tools`,
-  ])
   const stick = createStick()
 
   async function loadTools(value = state.host, dir = state.dir) {
@@ -975,6 +969,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
       await sendPrompt(session, state.mode, state.host, text, files)
       armFallback(session)
       setState("prompt", "")
+      requestAnimationFrame(() => grow())
       clearAttachments()
       if (session) await loadSession(session)
     } catch (err) {
@@ -990,6 +985,12 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     if (event.key !== "Enter" || event.shiftKey || event.isComposing) return
     event.preventDefault()
     void submit()
+  }
+
+  function grow(el = input) {
+    if (!el) return
+    el.style.height = "auto"
+    el.style.height = `${el.scrollHeight}px`
   }
 
   function drag(side: "left" | "right", down: PointerEvent) {
@@ -2343,13 +2344,19 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
             <option value="corporate_search">TEF Search</option>
           </select>
           <button type="button" class="macaw-attach" onClick={pickFiles} aria-label="Attach files" title="Attach files">
-            +
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M9 3h2v6h6v2h-6v6H9v-6H3V9h6z" />
+            </svg>
           </button>
           <textarea
+            ref={input}
             class="macaw-input"
             rows={1}
             value={state.prompt}
-            onInput={(event) => setState("prompt", event.currentTarget.value)}
+            onInput={(event) => {
+              setState("prompt", event.currentTarget.value)
+              grow(event.currentTarget)
+            }}
             onKeyDown={key}
             placeholder="Describe a task..."
           />
@@ -2361,9 +2368,15 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
                 type="button"
                 disabled={state.busy || (!state.prompt.trim() && state.attachments.length === 0)}
                 onClick={() => void submit()}
-                aria-label="Send"
-              >
-                {state.busy ? "..." : "→"}
+              aria-label="Send"
+            >
+                {state.busy ? (
+                  "..."
+                ) : (
+                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M4 10h12m-5-5 5 5-5 5" />
+                  </svg>
+                )}
               </button>
             }
           >
@@ -2394,10 +2407,6 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
               <path d="M5 5l10 10M15 5L5 15" />
             </svg>
           </button>
-        </div>
-
-        <div class="macaw-pane-state">
-          <For each={stats()}>{(item) => <span>{item}</span>}</For>
         </div>
 
         <div class="macaw-selects">
