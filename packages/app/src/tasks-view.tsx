@@ -458,24 +458,29 @@ export function TasksView(props: {
   return (
     <Show when={props.open}>
       <div class="macaw-tasks-overlay" role="dialog" aria-label="Tasks">
-        <div class="macaw-tasks-header">
-          <span class="macaw-tasks-title">Tasks</span>
-          <span class="macaw-tasks-count">
-            {counts().all} task{counts().all === 1 ? "" : "s"} · {counts().active} active · {counts().paused} paused
-            <Show when={counts().failed > 0}> · {counts().failed} failed</Show>
-          </span>
-          <button type="button" class="macaw-tasks-new" onClick={openCreate}>
-            + New task
-          </button>
-          <button type="button" class="macaw-tasks-refresh" onClick={() => void loadList()}>
-            Refresh
-          </button>
-          <button type="button" class="macaw-tasks-close" onClick={() => props.onClose()} aria-label="Close">
-            ×
-          </button>
-        </div>
+        <div class="macaw-tasks-card">
+          <div class="macaw-tasks-header">
+            <div class="macaw-tasks-copy">
+              <span class="macaw-tasks-title">Tasks</span>
+              <span class="macaw-tasks-count">
+                {counts().all} task{counts().all === 1 ? "" : "s"} · {counts().active} active · {counts().paused} paused
+                <Show when={counts().failed > 0}> · {counts().failed} failed</Show>
+              </span>
+            </div>
+            <div class="macaw-tasks-head-actions">
+              <button type="button" class="macaw-tasks-refresh" onClick={() => void loadList()}>
+                Refresh
+              </button>
+              <button type="button" class="macaw-tasks-new" onClick={openCreate}>
+                + New task
+              </button>
+              <button type="button" class="macaw-tasks-close" onClick={() => props.onClose()} aria-label="Close">
+                ×
+              </button>
+            </div>
+          </div>
 
-        <div class="macaw-tasks-body">
+          <div class="macaw-tasks-body">
           <aside class="macaw-tasks-list">
             <input
               type="search"
@@ -728,9 +733,9 @@ export function TasksView(props: {
               )}
             </Show>
           </section>
-        </div>
+          </div>
 
-        <Show when={form()} keyed>
+          <Show when={form()} keyed>
           {(f) => (
             <div class="macaw-tasks-modal" role="dialog" aria-label="Task editor">
               <div class="macaw-tasks-modal-card">
@@ -889,7 +894,8 @@ export function TasksView(props: {
               </div>
             </div>
           )}
-        </Show>
+          </Show>
+        </div>
       </div>
     </Show>
   )
