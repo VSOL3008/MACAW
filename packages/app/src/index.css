@@ -1,5 +1,7 @@
 @import "@macaw/ui/styles/tailwind";
 
+@layer base, components, macaw;
+
 @layer base {
   :root {
     color-scheme: dark;
@@ -21,6 +23,763 @@
 
   #root {
     min-height: 100vh;
+  }
+}
+
+/* MACAW workspace: calm, aligned desktop surfaces with focused narrow-screen panels. */
+@layer macaw {
+  .macaw-shell {
+    --macaw-blue: #007aff;
+    --macaw-text: #1d1d1f;
+    --macaw-muted: #6e6e73;
+    --macaw-line: rgba(60, 60, 67, 0.14);
+    --macaw-bar: 48px;
+    --macaw-control: 32px;
+    --macaw-compact: 28px;
+    --macaw-radius: 8px;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    grid-template-columns: var(--macaw-left, 248px) 6px minmax(560px, 1fr) 6px var(--macaw-right, 320px);
+    background: #f5f5f7;
+    color: var(--macaw-text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .macaw-side,
+  .macaw-main,
+  .macaw-pane {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  .macaw-side,
+  .macaw-pane {
+    gap: 0;
+    padding: 0;
+    border-color: var(--macaw-line);
+    backdrop-filter: none;
+  }
+
+  .macaw-side {
+    background: #f5f5f7;
+  }
+
+  .macaw-main {
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .macaw-pane {
+    overflow: hidden;
+    background: #f7f7f8;
+  }
+
+  .macaw-brand,
+  .macaw-toolbar,
+  .macaw-pane-head {
+    box-sizing: border-box;
+    display: flex;
+    width: 100%;
+    height: var(--macaw-bar);
+    min-height: var(--macaw-bar);
+    align-items: center;
+    border: 0;
+    border-bottom: 1px solid var(--macaw-line);
+    border-radius: 0;
+    background: rgba(255, 255, 255, 0.58);
+    box-shadow: none;
+  }
+
+  .macaw-brand {
+    justify-content: space-between;
+    padding: 0 14px;
+  }
+
+  .macaw-mark {
+    color: var(--macaw-text);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .macaw-toolbar {
+    flex: 0 0 var(--macaw-bar);
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
+    padding: 0 10px;
+  }
+
+  .macaw-toolbar-copy {
+    grid-column: 2;
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .macaw-toolbar-copy strong {
+    overflow: hidden;
+    color: var(--macaw-text);
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .macaw-toolbar-copy span {
+    flex: 0 0 auto;
+    color: var(--macaw-muted);
+    font-size: 11px;
+  }
+
+  .macaw-panel-toggle,
+  .macaw-panel-close {
+    display: none;
+    width: var(--macaw-control);
+    height: var(--macaw-control);
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #515154;
+  }
+
+  .macaw-panel-toggle:last-child {
+    grid-column: 3;
+  }
+
+  .macaw-panel-toggle svg,
+  .macaw-panel-close svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .macaw-panel-toggle:hover,
+  .macaw-panel-close:hover {
+    background: rgba(60, 60, 67, 0.09);
+  }
+
+  .macaw-block {
+    padding: 14px 10px 0;
+  }
+
+  .macaw-block.grow {
+    padding-top: 18px;
+  }
+
+  .macaw-actions {
+    display: grid;
+    gap: 5px;
+    padding-top: 10px;
+  }
+
+  .macaw-label {
+    margin: 0 7px 5px;
+    color: #86868b;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .macaw-new,
+  .macaw-item {
+    min-height: 34px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    color: #343438;
+    font-size: 13px;
+  }
+
+  .macaw-new {
+    border: 1px solid rgba(60, 60, 67, 0.18);
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--macaw-text);
+    font-weight: 600;
+  }
+
+  .macaw-new + .macaw-new {
+    margin-top: 0;
+  }
+
+  .macaw-new:hover,
+  .macaw-item:hover {
+    background: rgba(60, 60, 67, 0.07);
+  }
+
+  .macaw-new:hover {
+    border-color: rgba(60, 60, 67, 0.3);
+    background: #fff;
+    color: var(--macaw-text);
+  }
+
+  .macaw-item.active {
+    border-color: transparent;
+    background: rgba(0, 122, 255, 0.12);
+    color: #0066d6;
+  }
+
+  .macaw-item-title {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .macaw-search {
+    box-sizing: border-box;
+    display: flex;
+    width: 100%;
+    height: 38px;
+    min-height: 38px;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 9px;
+    padding: 0 11px;
+    border: 1px solid rgba(60, 60, 67, 0.22);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #7c7c80;
+    font-size: 13px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  }
+
+  .macaw-search:focus-within {
+    border-color: rgba(60, 60, 67, 0.38);
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .macaw-search svg {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+  }
+
+  .macaw-search-input {
+    appearance: none;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--macaw-text);
+    font: inherit;
+  }
+
+  .macaw-search-input::placeholder {
+    color: #86868b;
+    opacity: 1;
+  }
+
+  .macaw-shell .macaw-search .macaw-search-input:focus-visible {
+    outline: 0;
+  }
+
+  .macaw-list {
+    gap: 1px;
+  }
+
+  .macaw-empty {
+    padding: 6px;
+    color: var(--macaw-muted);
+    font-size: 12px;
+  }
+
+  .macaw-status {
+    min-height: 46px;
+    padding: 6px 10px;
+    border-color: var(--macaw-line);
+  }
+
+  .macaw-conn,
+  .macaw-settings-btn {
+    font-size: 12px;
+  }
+
+  .macaw-settings-btn {
+    min-height: var(--macaw-compact);
+    border-radius: 6px;
+  }
+
+  .macaw-grip {
+    z-index: 2;
+    background: #f5f5f7;
+  }
+
+  .macaw-grip::before {
+    background: var(--macaw-line);
+  }
+
+  .macaw-grip::after {
+    width: 2px;
+    height: 28px;
+    background: #b8b8bd;
+  }
+
+  .macaw-chat {
+    border: 0;
+    background: #fff;
+  }
+
+  .macaw-welcome,
+  .macaw-thread {
+    padding: 28px 32px;
+  }
+
+  .macaw-thread-body,
+  .macaw-welcome > * {
+    width: 100%;
+    max-width: 840px;
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .macaw-thread-body {
+    gap: 14px;
+  }
+
+  .macaw-guide-copy,
+  .macaw-example {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .macaw-guide-copy {
+    color: #515154;
+  }
+
+  .macaw-example {
+    min-height: var(--macaw-control);
+    color: #515154;
+  }
+
+  .macaw-example:hover {
+    color: var(--macaw-blue);
+  }
+
+  .macaw-bubble {
+    max-width: min(720px, 88%);
+    gap: 8px;
+    padding: 10px 12px;
+    border-color: rgba(60, 60, 67, 0.12);
+    border-radius: 11px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035);
+  }
+
+  .macaw-turn.user .macaw-bubble {
+    border-color: rgba(0, 122, 255, 0.12);
+    background: #eaf4ff;
+  }
+
+  .macaw-turn-head {
+    color: #86868b;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+
+  .macaw-text,
+  .macaw-markdown {
+    color: var(--macaw-text);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .macaw-compose {
+    box-sizing: border-box;
+    width: calc(100% - 48px);
+    max-width: 840px;
+    min-height: 50px;
+    margin: 9px auto 0;
+    padding: 5px 7px;
+    gap: 4px;
+    border-color: rgba(60, 60, 67, 0.18);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.035);
+  }
+
+  .macaw-compose:focus-within {
+    border-color: rgba(0, 122, 255, 0.58);
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.13), 0 4px 16px rgba(0, 0, 0, 0.06);
+  }
+
+  .macaw-mode,
+  .macaw-attach,
+  .macaw-send {
+    min-width: var(--macaw-control);
+    height: var(--macaw-control);
+    border-radius: var(--macaw-radius);
+    font-size: 12px;
+  }
+
+  .macaw-input {
+    min-height: var(--macaw-control);
+    padding: 5px 6px;
+    color: var(--macaw-text);
+    font-size: 14px;
+  }
+
+  .macaw-send {
+    background: var(--macaw-blue);
+  }
+
+  .macaw-send:hover {
+    background: #006ee6;
+  }
+
+  .macaw-foot {
+    min-height: 24px;
+    padding: 4px 14px 6px;
+  }
+
+  .macaw-note {
+    color: #929297;
+    font-size: 11px;
+  }
+
+  .macaw-pane-head {
+    justify-content: space-between;
+    padding: 0 14px;
+  }
+
+  .macaw-pane-title {
+    color: var(--macaw-text);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .macaw-pane-state {
+    min-height: 34px;
+    padding: 0 12px;
+    align-items: center;
+    border-color: var(--macaw-line);
+    color: #86868b;
+    font-size: 10px;
+  }
+
+  .macaw-selects {
+    gap: 8px;
+    padding: 12px;
+    border-color: var(--macaw-line);
+  }
+
+  .macaw-select span {
+    color: #86868b;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .macaw-host-trigger,
+  .macaw-select select {
+    min-height: var(--macaw-control);
+    padding-top: 0;
+    padding-bottom: 0;
+    border-color: rgba(60, 60, 67, 0.16);
+    border-radius: 7px;
+    background: #fff;
+    font-size: 12px;
+  }
+
+  .macaw-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+    margin: 8px 12px;
+    padding: 2px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(118, 118, 128, 0.12);
+  }
+
+  .macaw-tabs button {
+    min-height: var(--macaw-compact);
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    color: #515154;
+    font-size: 11px;
+  }
+
+  .macaw-tabs button.active {
+    border: 0;
+    background: #fff;
+    color: var(--macaw-text);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .macaw-pane-list {
+    padding: 0 10px 12px;
+    gap: 5px;
+  }
+
+  .macaw-step,
+  .macaw-tool {
+    border-color: rgba(60, 60, 67, 0.12);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.78);
+    box-shadow: none;
+    flex-shrink: 0;
+    padding: 0;
+  }
+
+  .macaw-step-head,
+  .macaw-tool-head {
+    min-height: var(--macaw-control);
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .macaw-step p,
+  .macaw-tool p {
+    margin: 0;
+    padding: 0 8px 8px;
+  }
+
+  .macaw-step.running,
+  .macaw-tool.active {
+    border-color: rgba(0, 122, 255, 0.28);
+    background: rgba(0, 122, 255, 0.07);
+  }
+
+  .macaw-step.completed {
+    border-color: rgba(52, 199, 89, 0.25);
+    background: rgba(52, 199, 89, 0.07);
+  }
+
+  .macaw-step.error {
+    border-color: rgba(255, 59, 48, 0.25);
+    background: rgba(255, 59, 48, 0.07);
+  }
+
+  .macaw-inline-tools {
+    gap: 5px;
+  }
+
+  .macaw-inline-tool {
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+  }
+
+  .macaw-host-menu {
+    padding: 3px;
+    border-radius: 8px;
+  }
+
+  .macaw-host-group {
+    padding: 6px 7px 3px;
+  }
+
+  .macaw-host-row {
+    border-radius: 6px;
+  }
+
+  .macaw-host-star {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+
+  .macaw-host-pick {
+    min-height: var(--macaw-compact);
+    padding: 5px 7px;
+    font-size: 12px;
+  }
+
+  .macaw-settings-card {
+    gap: 10px;
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .macaw-settings-kind {
+    gap: 6px;
+  }
+
+  .macaw-settings-pick {
+    padding: 7px 9px;
+    border-radius: 7px;
+  }
+
+  .macaw-settings-field input {
+    height: var(--macaw-control);
+    border-radius: 7px;
+  }
+
+  .macaw-settings-cancel,
+  .macaw-settings-save {
+    min-height: 30px;
+    padding: 5px 10px;
+    border-radius: 7px;
+  }
+
+  .macaw-settings-close {
+    width: var(--macaw-compact);
+    height: var(--macaw-compact);
+    border-radius: 7px;
+  }
+
+  .macaw-question,
+  .macaw-permission {
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+
+  .macaw-question-options {
+    gap: 4px;
+  }
+
+  .macaw-question-option {
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 7px;
+  }
+
+  .macaw-question-actions button,
+  .macaw-permission-actions button {
+    min-height: 30px;
+    padding: 0 10px;
+    border-radius: 7px;
+    font-size: 12px;
+  }
+
+  .macaw-scrim {
+    display: none;
+  }
+
+  .macaw-shell :is(button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--macaw-blue);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 1179px) {
+    .macaw-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .macaw-grip {
+      display: none;
+    }
+
+    .macaw-main {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .macaw-panel-toggle,
+    .macaw-panel-close {
+      display: inline-grid;
+    }
+
+    .macaw-side,
+    .macaw-pane {
+      position: fixed;
+      z-index: 40;
+      top: 0;
+      bottom: 0;
+      width: min(320px, calc(100vw - 16px));
+      visibility: hidden;
+      transition: transform 180ms ease, visibility 180ms ease;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+    }
+
+    .macaw-side {
+      left: 0;
+      transform: translateX(-102%);
+    }
+
+    .macaw-pane {
+      right: 0;
+      width: min(352px, calc(100vw - 16px));
+      transform: translateX(102%);
+    }
+
+    .macaw-shell.side-open .macaw-side,
+    .macaw-shell.pane-open .macaw-pane {
+      visibility: visible;
+      transform: translateX(0);
+    }
+
+    .macaw-scrim {
+      position: fixed;
+      z-index: 30;
+      inset: 0;
+      display: block;
+      pointer-events: none;
+      background: rgba(0, 0, 0, 0.2);
+      opacity: 0;
+      transition: opacity 180ms ease;
+    }
+
+    .macaw-shell.side-open .macaw-scrim,
+    .macaw-shell.pane-open .macaw-scrim {
+      pointer-events: auto;
+      opacity: 1;
+    }
+  }
+
+  @media (max-width: 639px) {
+    .macaw-toolbar {
+      padding: 0 8px;
+    }
+
+    .macaw-toolbar-copy span {
+      display: none;
+    }
+
+    .macaw-welcome,
+    .macaw-thread {
+      padding: 20px 12px;
+    }
+
+    .macaw-bubble {
+      max-width: 96%;
+    }
+
+    .macaw-compose {
+      width: calc(100% - 24px);
+      margin-top: 8px;
+    }
+
+    .macaw-mode {
+      max-width: 112px;
+    }
+
+    .macaw-foot {
+      padding-bottom: 6px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .macaw-side,
+    .macaw-pane,
+    .macaw-scrim {
+      transition: none;
+    }
   }
 }
 

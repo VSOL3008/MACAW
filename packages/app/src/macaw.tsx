@@ -408,8 +408,9 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     tools: [] as ToolListItem[],
     providers: [] as Provider[],
     status: {} as Record<string, SessionStatus>,
-    left: size("macaw.left", 122),
-    right: size("macaw.right", 224),
+    left: clamp(size("macaw.left", 248), 220, 300),
+    right: clamp(size("macaw.right", 320), 280, 360),
+    panel: "" as "" | "side" | "pane",
     showGraph: false,
     showTasks: false,
     favorites: loadFavorites(),
@@ -456,6 +457,10 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     return state.sessions.filter((item) => title(item).toLowerCase().includes(q))
   })
   const currentLabel = createMemo(() => models().find((item) => pack(item) === state.host)?.label ?? "")
+  const heading = createMemo(() => {
+    const session = state.sessions.find((item) => item.id === state.current)
+    return session ? title(session) : ""
+  })
   const currentStatus = createMemo(() => state.status[state.current])
   const pending = createMemo(() =>
     state.messages.findLast(
@@ -567,6 +572,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     setState("messages", msgs.data ?? [])
     setState("todos", todos.data ?? [])
     setState("attachments", [])
+    if (state.panel) panel(state.panel)
     write("macaw.session", id)
   }
 
@@ -994,7 +1000,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     if (!root) return
     const box = root.getBoundingClientRect()
     const pick = (x: number) =>
-      side === "left" ? clamp(x - box.left, 96, 320) : clamp(box.right - x, 180, 420)
+      side === "left" ? clamp(x - box.left, 220, 300) : clamp(box.right - x, 280, 360)
     let px = pick(down.clientX)
     setState(side, px)
     const cursor = document.body.style.cursor
@@ -1014,6 +1020,17 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     }
     window.addEventListener("pointermove", move)
     window.addEventListener("pointerup", up)
+  }
+
+  function panel(next?: "side" | "pane") {
+    const open = next && state.panel !== next ? next : ""
+    setState("panel", open)
+    requestAnimationFrame(() => {
+      const id = open ? `macaw-${open}` : next === "side" ? "macaw-nav" : "macaw-info"
+      const root = document.getElementById(id)
+      const target = open ? root?.querySelector<HTMLElement>("button, input, select, textarea") : root
+      target?.focus()
+    })
   }
 
   function touchFallback(sessionID: string | undefined) {
@@ -1332,6 +1349,19 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
   onMount(() => {
     document.documentElement.style.colorScheme = "light"
     document.documentElement.dataset.colorScheme = "light"
+    const media = matchMedia("(min-width: 1180px)")
+    const resize = () => {
+      if (media.matches) setState("panel", "")
+    }
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && state.panel) panel(state.panel)
+    }
+    media.addEventListener("change", resize)
+    document.addEventListener("keydown", keydown)
+    onCleanup(() => {
+      media.removeEventListener("change", resize)
+      document.removeEventListener("keydown", keydown)
+    })
   })
 
   onMount(() => {
@@ -1823,7 +1853,11 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
   }
 
   return (
-    <div class="macaw-shell" style={{ "--macaw-left": `${state.left}px`, "--macaw-right": `${state.right}px` }}>
+    <div
+      class="macaw-shell"
+      classList={{ "side-open": state.panel === "side", "pane-open": state.panel === "pane" }}
+      style={{ "--macaw-left": `${state.left}px`, "--macaw-right": `${state.right}px` }}
+    >
       <Show when={state.settingsOpen}>
         <div
           class="macaw-settings-overlay"
@@ -1923,35 +1957,45 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
         </div>
       </Show>
 
-      <aside class="macaw-side">
+      <div class="macaw-scrim" aria-hidden="true" onClick={() => panel(state.panel || undefined)} />
+
+      <aside id="macaw-side" class="macaw-side" aria-label="Sessions">
         <div class="macaw-brand">
           <div class="macaw-mark">MACAW</div>
+          <button type="button" class="macaw-panel-close" aria-label="Close sessions" onClick={() => panel("side")}>
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M5 5l10 10M15 5L5 15" />
+            </svg>
+          </button>
         </div>
-        <div class="macaw-block">
-          <div class="macaw-label">Sessions</div>
+        <div class="macaw-block macaw-actions">
           <button class="macaw-new" type="button" onClick={() => void createSession()}>
             New Session
           </button>
-        </div>
-        <div class="macaw-block">
-          <div class="macaw-label">Memory</div>
           <button class="macaw-new" type="button" onClick={() => setState("showGraph", true)}>
-            Open MACAW wiki
+            MACAW wiki
           </button>
           <button class="macaw-new" type="button" onClick={() => setState("showTasks", true)}>
-            Open MACAW tasks
+            MACAW tasks
           </button>
         </div>
         <div class="macaw-block grow">
           <div class="macaw-label">History</div>
           <Show when={state.sessions.length > 0}>
-            <input
-              type="search"
-              class="macaw-search"
-              placeholder="Search history..."
-              value={state.filter}
-              onInput={(event) => setState("filter", event.currentTarget.value)}
-            />
+            <div class="macaw-search">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <circle cx="8.5" cy="8.5" r="5" />
+                <path d="m12.2 12.2 4.1 4.1" />
+              </svg>
+              <input
+                type="search"
+                class="macaw-search-input"
+                aria-label="Search history"
+                placeholder="Search history"
+                value={state.filter}
+                onInput={(event) => setState("filter", event.currentTarget.value)}
+              />
+            </div>
           </Show>
           <Show
             when={state.sessions.length > 0}
@@ -2019,9 +2063,42 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
         </div>
       </aside>
 
-      <div class="macaw-grip" onPointerDown={(event) => drag("left", event)} />
+      <div class="macaw-grip" aria-hidden="true" onPointerDown={(event) => drag("left", event)} />
 
       <main class="macaw-main">
+        <header class="macaw-toolbar">
+          <button
+            id="macaw-nav"
+            type="button"
+            class="macaw-panel-toggle"
+            aria-label="Open sessions"
+            aria-controls="macaw-side"
+            aria-expanded={state.panel === "side"}
+            onClick={() => panel("side")}
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M3.5 4.5h13v11h-13zM7 4.5v11" />
+            </svg>
+          </button>
+          <div class="macaw-toolbar-copy">
+            <strong>{heading() || "New session"}</strong>
+            <span>{pretty(currentStatus())}</span>
+          </div>
+          <button
+            id="macaw-info"
+            type="button"
+            class="macaw-panel-toggle"
+            aria-label="Open inspector"
+            aria-controls="macaw-pane"
+            aria-expanded={state.panel === "pane"}
+            onClick={() => panel("pane")}
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <circle cx="10" cy="10" r="6.5" />
+              <path d="M10 9v4M10 6.7v.1" />
+            </svg>
+          </button>
+        </header>
         <Show when={state.toasts.length > 0}>
           <div class="macaw-toasts">
             <For each={state.toasts}>
@@ -2307,11 +2384,16 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
         </div>
       </main>
 
-      <div class="macaw-grip" onPointerDown={(event) => drag("right", event)} />
+      <div class="macaw-grip" aria-hidden="true" onPointerDown={(event) => drag("right", event)} />
 
-      <aside class="macaw-pane">
+      <aside id="macaw-pane" class="macaw-pane" aria-label="Inspector">
         <div class="macaw-pane-head">
           <div class="macaw-pane-title">Inspector</div>
+          <button type="button" class="macaw-panel-close" aria-label="Close inspector" onClick={() => panel("pane")}>
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M5 5l10 10M15 5L5 15" />
+            </svg>
+          </button>
         </div>
 
         <div class="macaw-pane-state">
