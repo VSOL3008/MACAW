@@ -1,6 +1,18 @@
 import { describe, expect, test } from "bun:test"
 import path from "path"
-import { build, deck, PAGE, pages, parameters, prepare, renderer, slides, Tef1ReportTool, output } from "../../src/tool/tef1"
+import {
+  build,
+  deck,
+  PAGE,
+  pages,
+  parameters,
+  prepare,
+  renderer,
+  slides,
+  storyboard,
+  Tef1ReportTool,
+  output,
+} from "../../src/tool/tef1"
 import { runFile } from "../../src/tool/win"
 import { tmpdir } from "../fixture/fixture"
 
@@ -205,6 +217,23 @@ describe("tef1.slide planning", () => {
     expect(out[0].items.length).toBe(PAGE)
     expect(out[1].items.length).toBe(1)
   })
+
+  test("builds a live storyboard in final slide order", () => {
+    const input = parameters.parse({
+      ...sample(true),
+      sections: [{ title: "Release matrix", bullets: ["ST10 released"] }],
+      visuals: [{ title: "Evidence image", caption: "Checked result", image_path: "result.png", source: "TEF" }],
+      evidence: refs(1),
+    })
+    expect(storyboard(input).map((item) => item.title)).toEqual([
+      "Torque audit",
+      "Safe Launch overview",
+      "Safe Launch results",
+      "Release matrix",
+      "Evidence image",
+      "Evidence references",
+    ])
+  })
 })
 
 describe("tef1.visual renderer", () => {
@@ -261,6 +290,15 @@ describe("tef1.build", () => {
       ),
     ).toContain("$expected = 3")
     expect(build({ ...sample(true), evidence: refs(2) })).toContain("$expected = 4")
+  })
+
+  test("emits opt-in progress events for the live presentation card", () => {
+    const script = build(sample(), { progress: true })
+    expect(script).toContain("MACAW_PROGRESS:open")
+    expect(script).toContain("MACAW_PROGRESS:compose")
+    expect(script).toContain("MACAW_PROGRESS:export")
+    expect(script).toContain("MACAW_PROGRESS:validate")
+    expect(build(sample())).not.toContain("MACAW_PROGRESS:")
   })
 })
 

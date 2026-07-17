@@ -142,6 +142,11 @@ PowerShell / COM:
 - HARD RULE: Never call `powershell`, `powershell.exe`, or `pwsh` through the `bash` tool. bash strips `$variables` before PowerShell sees them, so `$x = New-Object ...` becomes `= New-Object ...` and fails. The `bash` tool will reject such commands. Use the `outlook` tool for mail, or the `powershell` tool for everything else.
 - `bash` is still the right tool for plain shell things (git, node, bun, grep, find, non-PowerShell CLIs).
 
+PowerPoint presentations:
+- After creating or modifying any saved `.pptx`, call `presentation_preview` with its path so the user gets the in-chat slide explorer and editable download. This applies regardless of which tool or workflow created the deck.
+- Do not call `presentation_preview` after `tef1_report`; that tool already returns the same explorer and attachment.
+- Call the preview only after the presentation is saved. If you revise the deck afterward, call it again for the revised file.
+
 Low-level primitives (fallback):
 - `keyboard` for hotkeys (ctrl+s, ctrl+n, alt+f4, etc.) when a shortcut exists.
 - `mouse` and `screenshot` are available but should be the last resort; they are only needed for apps that do not expose UI Automation (some games, DirectX, Electron with accessibility disabled).

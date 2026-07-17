@@ -7,10 +7,9 @@ import { Filesystem } from "../util/filesystem"
 import { assertExternalDirectory } from "./external-directory"
 import { Tool } from "./tool"
 import { ensureWindows, runFile } from "./win"
+import { attachment, MIME } from "./presentation"
 import template from "./tef1/TEF1_Report_template.pptx" with { type: "file" }
 
-export const MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-export const MAX_ATTACHMENT = 15 * 1024 * 1024
 export const PAGE = 12
 export const DPI = 160
 
@@ -128,6 +127,7 @@ type Build = {
   output?: string
   render?: string
   template?: string
+  progress?: boolean
 }
 
 type Result = {
@@ -178,6 +178,27 @@ export function deck(input: Pick<Tef1Input, "appendix_policy" | "evidence" | "mo
 
 export function slides(input: Pick<Tef1Input, "appendix_policy" | "evidence" | "mode" | "report" | "sections" | "visuals">) {
   return 1 + (input.report.safe_launch ? 2 : 0) + deck(input).length
+}
+
+export function storyboard(input: Tef1Input) {
+  return [
+    { title: input.report.theme, kind: "cover" },
+    ...(input.report.safe_launch
+      ? [
+          { title: "Safe Launch overview", kind: "safe" },
+          { title: "Safe Launch results", kind: "safe" },
+        ]
+      : []),
+    ...deck(input).map((item) => ({
+      title:
+        item.kind === "section"
+          ? item.section.title
+          : item.kind === "visual"
+            ? item.visual.title
+            : "Evidence references",
+      kind: item.kind,
+    })),
+  ]
 }
 
 export function output(input: Pick<Tef1Input, "output_path" | "overwrite">, dir = Instance.directory) {
@@ -361,6 +382,7 @@ export function build(input: Tef1Input, opts: Build = {}) {
     render_path: opts.render ?? "",
     deck: deck(doc),
   }
+  const pulse = (stage: string) => (opts.progress ? `Write-Output 'MACAW_PROGRESS:${stage}'` : "")
   return `
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -809,12 +831,14 @@ if ([string]::IsNullOrWhiteSpace($render)) {
   $render = Join-Path ([System.IO.Path]::GetTempPath()) ('macaw-tef1-' + [guid]::NewGuid().ToString())
 }
 if (-not (Test-Path -LiteralPath $template)) { throw ('TEF1 template asset not found: ' + $template) }
+${pulse("template")}
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $out) | Out-Null
 Copy-Item -LiteralPath $template -Destination $out -Force
 
 $app = $null
 $pres = $null
 try {
+  ${pulse("open")}
   $app = New-Object -ComObject PowerPoint.Application
   $app.DisplayAlerts = 1
 } catch {
@@ -823,6 +847,7 @@ try {
 
 try {
   $pres = $app.Presentations.Open($out, $false, $false, $false)
+  ${pulse("compose")}
   Fill-Slide1 $pres.Slides.Item(1)
   if ($cfg.report.safe_launch) {
     Fill-Safe $pres
@@ -839,8 +864,10 @@ try {
   $pres = $app.Presentations.Open($out, $true, $false, $false)
   if (Test-Path -LiteralPath $render) { Remove-Item -LiteralPath $render -Recurse -Force }
   New-Item -ItemType Directory -Force -Path $render | Out-Null
+  ${pulse("export")}
   $pres.Export($render, 'PNG', 1600, 900)
   $expected = ${slides(doc)}
+  ${pulse("validate")}
   $fail = Validate $pres $expected
   if ($fail.Count -gt 0) {
     throw ('TEF1 validation failed for draft ' + $out + ': ' + (($fail.ToArray()) -join '; '))
@@ -861,20 +888,6 @@ try {
   [System.GC]::WaitForPendingFinalizers()
 }
 `.trim()
-}
-
-async function attachment(out: string) {
-  const size = await Filesystem.size(out)
-  if (size > MAX_ATTACHMENT) return []
-  const buf = Buffer.from(await Bun.file(out).arrayBuffer())
-  return [
-    {
-      type: "file" as const,
-      mime: MIME,
-      filename: path.basename(out),
-      url: `data:${MIME};base64,${buf.toString("base64")}`,
-    },
-  ]
 }
 
 export const Tef1ReportTool = Tool.define("tef1_report", {
@@ -900,10 +913,45 @@ export const Tef1ReportTool = Tool.define("tef1_report", {
       },
     })
 
+    const plan = storyboard(data)
+    const update = (stage: string, progress: number, action: string) =>
+      ctx.metadata({
+        title: action,
+        metadata: {
+          kind: "presentation",
+          title: data.report.theme,
+          stage,
+          progress,
+          action,
+          slide_count: slides(data),
+          plan,
+        },
+      })
+    update("assets", 12, data.visuals.length ? "Preparing visual sources" : "Preparing presentation content")
     const ready = await prepare(data, ctx.abort)
-    const raw = await runFile(build(ready.input, { output: out }), ctx.abort).finally(ready.cleanup)
-    const result = JSON.parse(raw) as Result
-    const files = await attachment(out)
+    update("layout", 30, "Opening the template and planning slide layouts")
+    let trace = ""
+    const seen = new Set<string>()
+    const stages = [
+      ["template", "layout", 38, "Copying the presentation template"],
+      ["open", "layout", 46, "Opening PowerPoint"],
+      ["compose", "compose", 60, "Writing content and placing visuals"],
+      ["export", "render", 78, "Rendering slide previews"],
+      ["validate", "validate", 91, "Checking every slide for errors"],
+    ] as const
+    const raw = await runFile(build(ready.input, { output: out, progress: true }), ctx.abort, (chunk) => {
+      trace = `${trace}${chunk}`.slice(-2048)
+      stages
+        .filter((item) => !seen.has(item[0]) && trace.includes(`MACAW_PROGRESS:${item[0]}`))
+        .forEach((item) => {
+          seen.add(item[0])
+          update(item[1], item[2], item[3])
+        })
+    }).finally(ready.cleanup)
+    const result = JSON.parse(raw.split(/\r?\n/).findLast((line) => line.trimStart().startsWith("{")) ?? raw) as Result
+    update("package", 97, "Packaging the editable deck and previews")
+    const files = await attachment(out, result.render_path)
+    const previews = files.filter((item) => item.mime === "image/png").length
     const refs = result.evidence.length ? `\nEvidence references: ${result.evidence.join(", ")}` : ""
     const warn = result.warnings.length ? `\nWarnings: ${result.warnings.join("; ")}` : ""
     return {
@@ -915,7 +963,14 @@ export const Tef1ReportTool = Tool.define("tef1_report", {
         slide_count: result.slide_count,
         evidence: result.evidence,
         warnings: result.warnings,
-        attached: files.length > 0,
+        attached: files.some((item) => item.mime === MIME),
+        previews,
+        kind: "presentation",
+        title: data.report.theme,
+        stage: "ready",
+        progress: 100,
+        action: "Presentation ready",
+        plan,
       },
       ...(files.length ? { attachments: files } : {}),
     }

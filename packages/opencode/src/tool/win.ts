@@ -87,7 +87,7 @@ export async function run(script: string, signal?: AbortSignal) {
   }
 }
 
-export async function runFile(script: string, signal?: AbortSignal) {
+export async function runFile(script: string, signal?: AbortSignal, notify?: (chunk: string) => void) {
   ensureWindows()
   const file = `${process.env.TEMP ?? process.env.TMP ?? "."}\\macaw-ps-${crypto.randomUUID()}.ps1`
   await Bun.write(file, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(script, "utf8")]))
@@ -113,8 +113,24 @@ export async function runFile(script: string, signal?: AbortSignal) {
   const abort = () => child.kill()
   signal?.addEventListener("abort", abort, { once: true })
   try {
+    const stdout = async () => {
+      const reader = child.stdout.getReader()
+      const decoder = new TextDecoder()
+      let out = ""
+      while (true) {
+        const part = await reader.read()
+        if (part.done) break
+        const chunk = decoder.decode(part.value, { stream: true })
+        out += chunk
+        notify?.(chunk)
+      }
+      const chunk = decoder.decode()
+      out += chunk
+      notify?.(chunk)
+      return out
+    }
     const [out, err, code] = await Promise.all([
-      new Response(child.stdout).text(),
+      stdout(),
       new Response(child.stderr).text(),
       child.exited,
     ])

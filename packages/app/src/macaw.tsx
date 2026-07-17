@@ -33,6 +33,7 @@ import {
   rowFiles,
   rowImages,
   rowOtherTools,
+  rowPresentationTools,
   rowReasoningParts,
   rowShellTools,
   rowTaskTools,
@@ -73,6 +74,16 @@ type Settings = {
 const AZURE = "azure-foundry"
 const AZURE_NAME = "Azure AI Foundry"
 const AZURE_MODEL = "gpt-4o"
+const PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+type Deck = {
+  title?: string
+  stage?: string
+  progress?: number
+  action?: string
+  slide_count?: number
+  plan?: Array<{ title: string; kind: string }>
+}
 
 function read(key: string) {
   try {
@@ -1668,6 +1679,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
                       </Show>
                     )}
                   </For>
+                  <For each={rowPresentationTools(row)}>{(part) => <PresentationCard part={part} mini />}</For>
                   <Show when={rowOtherTools(row).length > 0}>
                     <div class="macaw-inline-tools">
                       <For each={rowOtherTools(row)}>
@@ -1688,6 +1700,184 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
           </div>
         </Show>
       </div>
+    )
+  }
+
+  function PresentationCard(props: { part: ToolPart; mini?: boolean }) {
+    const [view, setView] = createStore({ slide: 0, locked: false })
+    const input = () =>
+      props.part.state.input as {
+        path?: string
+        output_path?: string
+        title?: string
+        report?: { theme?: string; safe_launch?: boolean }
+        mode?: "full" | "form"
+        appendix_policy?: "auto" | "always" | "never"
+        evidence?: unknown[]
+        sections?: Array<{ title?: string }>
+        visuals?: Array<{ title?: string }>
+      }
+    const meta = () => ((props.part.state as unknown as { metadata?: Deck }).metadata ?? {})
+    const status = () => props.part.state.status
+    const title = () =>
+      meta().title ??
+      input().title ??
+      input().report?.theme ??
+      (input().path ?? input().output_path)?.split(/[\\/]/).at(-1)?.replace(/\.pptx$/i, "") ??
+      "Presentation"
+    const fallback = () => [
+      { title: title(), kind: "cover" },
+      ...(input().report?.safe_launch
+        ? [
+            { title: "Safe Launch overview", kind: "safe" },
+            { title: "Safe Launch results", kind: "safe" },
+          ]
+        : []),
+      ...(input().mode === "form"
+        ? []
+        : [
+            ...(input().sections ?? []).map((item) => ({ title: item.title ?? "Section", kind: "section" })),
+            ...(input().visuals ?? []).map((item) => ({ title: item.title ?? "Visual", kind: "visual" })),
+          ]),
+      ...Array.from(
+        {
+          length:
+            input().appendix_policy === "never"
+              ? 0
+              : Math.ceil(Math.max(input().evidence?.length ?? 0, input().appendix_policy === "always" ? 1 : 0) / 12),
+        },
+        () => ({ title: "Evidence references", kind: "reference" }),
+      ),
+    ]
+    const plan = () => meta().plan ?? fallback()
+    const progress = () =>
+      Math.max(
+        0,
+        Math.min(100, status() === "completed" ? 100 : Number(meta().progress ?? (status() === "running" ? 6 : 0))),
+      )
+    const files = () => (props.part.state.status === "completed" ? props.part.state.attachments ?? [] : [])
+    const images = () => files().filter((item) => item.mime.startsWith("image/"))
+    const deck = () => files().find((item) => item.mime === PPTX)
+    const total = () => Math.max(meta().slide_count ?? 0, plan().length, images().length, 1)
+    const live = () => Math.min(total() - 1, Math.floor((progress() / 100) * total()))
+    const slide = () => Math.min(view.slide, total() - 1)
+    const image = () => images()[slide()]
+    const item = () => plan()[slide()]
+    const pick = (index: number) => {
+      setView({ slide: Math.max(0, Math.min(total() - 1, index)), locked: true })
+    }
+    createEffect(() => {
+      if (status() !== "running" || view.locked) return
+      setView("slide", live())
+    })
+    createEffect(() => {
+      if (status() !== "completed" || view.locked) return
+      setView("slide", 0)
+    })
+
+    return (
+      <section
+        class={`macaw-presentation ${status()}`}
+        classList={{ mini: props.mini }}
+        aria-label={`${title()} presentation explorer`}
+      >
+        <div
+          class="macaw-presentation-viewer"
+          tabIndex={0}
+          aria-label={`Slide ${slide() + 1} of ${total()}`}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
+            event.preventDefault()
+            pick(slide() + (event.key === "ArrowLeft" ? -1 : 1))
+          }}
+        >
+          <button
+            type="button"
+            class="macaw-presentation-arrow previous"
+            disabled={slide() === 0}
+            aria-label="Previous slide"
+            onClick={() => pick(slide() - 1)}
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="m12.5 4.5-5 5.5 5 5.5" />
+            </svg>
+          </button>
+          <Show
+            when={image()}
+            keyed
+            fallback={
+              <div class="macaw-presentation-canvas" classList={{ loading: status() === "running" }}>
+                <span>Slide {slide() + 1}</span>
+                <h4>{item()?.title ?? title()}</h4>
+                <i />
+                <i />
+                <i />
+                <Show when={status() === "running"}>
+                  <em>Creating preview...</em>
+                </Show>
+              </div>
+            }
+          >
+            {(file) => <img class="macaw-presentation-image" src={file.url} alt={`Slide ${slide() + 1}: ${item()?.title ?? title()}`} />}
+          </Show>
+          <button
+            type="button"
+            class="macaw-presentation-arrow next"
+            disabled={slide() === total() - 1}
+            aria-label="Next slide"
+            onClick={() => pick(slide() + 1)}
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="m7.5 4.5 5 5.5-5 5.5" />
+            </svg>
+          </button>
+          <span class="macaw-presentation-number">{slide() + 1} / {total()}</span>
+        </div>
+        <nav class="macaw-presentation-thumbs" aria-label="Presentation slides">
+          <For each={Array.from({ length: total() })}>
+            {(_, i) => (
+              <button
+                type="button"
+                classList={{ selected: i() === slide(), pending: !images()[i()] }}
+                aria-label={`Show slide ${i() + 1}${plan()[i()]?.title ? `: ${plan()[i()]?.title}` : ""}`}
+                aria-current={i() === slide() ? "true" : undefined}
+                onClick={() => pick(i())}
+              >
+                <Show
+                  when={images()[i()]}
+                  keyed
+                  fallback={
+                    <span class="macaw-presentation-thumb">
+                      <b>{i() + 1}</b>
+                      <em>{plan()[i()]?.title ?? `Slide ${i() + 1}`}</em>
+                    </span>
+                  }
+                >
+                  {(file) => <img src={file.url} alt="" />}
+                </Show>
+                <span>{i() + 1}</span>
+              </button>
+            )}
+          </For>
+        </nav>
+        <Show when={status() === "error"}>
+          <p class="macaw-presentation-error">
+            {(props.part.state as unknown as { error?: string }).error ?? "The deck could not be generated."}
+          </p>
+        </Show>
+        <Show when={deck()} keyed>
+          {(file) => (
+            <footer class="macaw-presentation-footer">
+              <a class="macaw-presentation-download" href={file.url} download={file.filename ?? "presentation.pptx"}>
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 15.5h12" />
+                </svg>
+                Download PowerPoint
+              </a>
+            </footer>
+          )}
+        </Show>
+      </section>
     )
   }
 
@@ -2331,6 +2521,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
                             </Show>
                           )}
                         </For>
+                        <For each={rowPresentationTools(row)}>{(part) => <PresentationCard part={part} />}</For>
                         <Show when={rowOtherTools(row).length > 0}>
                           <div class="macaw-inline-tools">
                             <For each={rowOtherTools(row)}>

@@ -50,6 +50,7 @@ import { PowerShellTool } from "./powershell"
 import { OutlookTool } from "./outlook"
 import { ExcelTool } from "./excel"
 import { Tef1ReportTool } from "./tef1"
+import { PresentationPreviewTool } from "./presentation"
 import { MemoryReadTool, MemoryWriteTool, MemoryAppendTool, MemoryListTool, MemorySearchTool } from "../memory/tool"
 import {
   CorporateStatusTool,
@@ -196,6 +197,7 @@ export namespace ToolRegistry {
             outlook: Tool.init(OutlookTool),
             excel: Tool.init(ExcelTool),
             tef1_report: Tool.init(Tef1ReportTool),
+            presentation_preview: Tool.init(PresentationPreviewTool),
             memory_read: Tool.init(MemoryReadTool),
             memory_write: Tool.init(MemoryWriteTool),
             memory_append: Tool.init(MemoryAppendTool),
@@ -239,6 +241,7 @@ export namespace ToolRegistry {
               tool.outlook,
               tool.excel,
               tool.tef1_report,
+              tool.presentation_preview,
               tool.memory_read,
               tool.memory_write,
               tool.memory_append,

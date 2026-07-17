@@ -81,6 +81,17 @@ export function rowTaskTools(row: Row): ToolPart[] {
 }
 
 const SHELL_TOOLS = new Set(["bash", "powershell"])
+const PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+function presentation(part: ToolPart) {
+  const state = part.state as unknown as {
+    metadata?: { kind?: unknown }
+    attachments?: Array<{ mime?: unknown }>
+  }
+  if (state.metadata?.kind === "presentation") return true
+  if (state.attachments?.some((file) => file.mime === PPTX)) return true
+  return part.tool === "presentation_preview"
+}
 
 export function rowShellTools(row: Row): ToolPart[] {
   return row.parts.filter((part): part is ToolPart => part.type === "tool" && SHELL_TOOLS.has(part.tool))
@@ -88,6 +99,10 @@ export function rowShellTools(row: Row): ToolPart[] {
 
 export function rowTodoTools(row: Row): ToolPart[] {
   return row.parts.filter((part): part is ToolPart => part.type === "tool" && part.tool === "todowrite")
+}
+
+export function rowPresentationTools(row: Row): ToolPart[] {
+  return row.parts.filter((part): part is ToolPart => part.type === "tool" && presentation(part))
 }
 
 export function latestTodo(rows: Row[]): ToolPart | undefined {
@@ -100,6 +115,7 @@ export function rowOtherTools(row: Row): ToolPart[] {
     if (part.tool === "task") return false
     if (part.tool === "todowrite") return false
     if (SHELL_TOOLS.has(part.tool)) return false
+    if (presentation(part)) return false
     if (part.tool === "question" && (part.state.status === "pending" || part.state.status === "running")) return false
     return true
   })
