@@ -590,9 +590,9 @@ export function MemoryGraph(props: { open: boolean; onClose: () => void; server:
       if (row.source !== id && row.target !== id) continue
       trace(ctx, row, fit, ox, oy)
     }
-    ctx.strokeStyle = color(style, "--mg-edge-active", "#2563eb")
+    ctx.strokeStyle = color(style, "--mg-edge-active", "#526b8a")
     ctx.lineWidth = 2
-    ctx.shadowColor = color(style, "--mg-edge-glow", "rgba(37, 99, 235, 0.3)")
+    ctx.shadowColor = color(style, "--mg-edge-glow", "rgba(82, 107, 138, 0.18)")
     ctx.shadowBlur = 7
     ctx.stroke()
     ctx.shadowBlur = 0

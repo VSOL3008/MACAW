@@ -11,14 +11,7 @@
     margin: 0;
     background: #050816;
     color: #f5f7fb;
-    font-family:
-      Inter,
-      ui-sans-serif,
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      sans-serif;
+    font-family: var(--font-family-sans);
   }
 
   #root {
@@ -363,6 +356,238 @@
     background: #efeff2;
   }
 
+  .macaw-wiki-card {
+    --mg-core: #526b8a;
+    --mg-entities: #796b86;
+    --mg-projects: #6f806f;
+    --mg-preferences: #9a7b55;
+    --mg-facts: #5f7f87;
+    --mg-skills: #9a6659;
+    --mg-other: #9298a1;
+    --mg-edge: rgba(82, 107, 138, 0.16);
+    --mg-edge-dim: rgba(75, 82, 92, 0.055);
+    --mg-edge-active: rgba(70, 86, 106, 0.76);
+    --mg-edge-glow: rgba(82, 107, 138, 0.13);
+    --mg-grid: rgba(60, 60, 67, 0.1);
+    --mg-surface: #fbfbfc;
+  }
+
+  .macaw-graph-map {
+    background:
+      radial-gradient(circle at 50% 44%, rgba(60, 60, 67, 0.035), transparent 38%),
+      var(--mg-surface);
+  }
+
+  .macaw-graph-map::before {
+    background-size: 24px 24px;
+    opacity: 0.65;
+    -webkit-mask-image: radial-gradient(circle at center, #000 18%, transparent 78%);
+    mask-image: radial-gradient(circle at center, #000 18%, transparent 78%);
+  }
+
+  .macaw-graph-cluster-ring {
+    fill-opacity: 0.018;
+    stroke-opacity: 0.14;
+    stroke-dasharray: 3 6;
+  }
+
+  .macaw-graph-cluster-name {
+    fill: currentColor;
+    fill-opacity: 0.82;
+    stroke: var(--mg-surface);
+    stroke-width: 5px;
+    font-size: 9px;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+  }
+
+  .macaw-graph-node-fill {
+    stroke: rgba(255, 255, 255, 0.96);
+    stroke-width: 1.5;
+    filter: none;
+  }
+
+  .macaw-graph-node-halo {
+    stroke-width: 4;
+  }
+
+  .macaw-graph-node.linked .macaw-graph-node-fill {
+    filter: none;
+  }
+
+  .macaw-graph-node:hover .macaw-graph-node-fill,
+  .macaw-graph-node.selected .macaw-graph-node-fill {
+    filter: none;
+    stroke: #1d1d1f;
+    stroke-width: 2;
+  }
+
+  .macaw-graph-node:hover .macaw-graph-node-halo,
+  .macaw-graph-node:focus-visible .macaw-graph-node-halo,
+  .macaw-graph-node.selected .macaw-graph-node-halo {
+    opacity: 0.1;
+  }
+
+  .macaw-graph-node:focus-visible .macaw-graph-node-fill {
+    stroke: #1d1d1f;
+    stroke-width: 2;
+  }
+
+  .macaw-graph-node-label {
+    fill: #57585d;
+    stroke: rgba(251, 251, 252, 0.95);
+    stroke-width: 5px;
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  .macaw-graph-node:hover .macaw-graph-node-label,
+  .macaw-graph-node.selected .macaw-graph-node-label {
+    fill: #1d1d1f;
+    font-size: 11px;
+    font-weight: 650;
+  }
+
+  .macaw-graph-node.dim {
+    opacity: 0.16;
+  }
+
+  .macaw-graph-legend,
+  .macaw-graph-hint {
+    border: 1px solid rgba(60, 60, 67, 0.13);
+    background: rgba(255, 255, 255, 0.9);
+    color: #68686d;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+    backdrop-filter: blur(14px);
+  }
+
+  .macaw-graph-legend {
+    gap: 5px;
+    padding: 8px 9px;
+    border-radius: 9px;
+    font-size: 9px;
+  }
+
+  .macaw-graph-hint {
+    padding: 6px 9px;
+    border-radius: 8px;
+    font-size: 9px;
+    letter-spacing: 0;
+  }
+
+  .macaw-graph-legend-item {
+    gap: 6px;
+    color: #68686d;
+    font-weight: 550;
+    letter-spacing: 0.04em;
+  }
+
+  .macaw-graph-legend-dot,
+  .macaw-wiki-item-dot,
+  .macaw-graph-inspector-dot,
+  .macaw-graph-related-dot {
+    border-radius: 2px;
+  }
+
+  .macaw-graph-legend-dot {
+    width: 6px;
+    height: 6px;
+  }
+
+  .macaw-graph-legend-count {
+    color: #a1a1a6;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .macaw-graph-inspector {
+    padding: 5px 4px 12px;
+    border-left-color: #eceef1;
+    background: #fafafa;
+    color: #1d1d1f;
+  }
+
+  .macaw-graph-inspector-empty,
+  .macaw-graph-inspector-head,
+  .macaw-graph-inspector-stats,
+  .macaw-graph-related {
+    margin: 12px;
+  }
+
+  .macaw-graph-inspector-head {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .macaw-graph-inspector-dot {
+    width: 7px;
+    height: 7px;
+    margin-top: 4px;
+  }
+
+  .macaw-graph-inspector-title {
+    color: #1d1d1f;
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .macaw-graph-inspector-sub,
+  .macaw-graph-inspector-path,
+  .macaw-graph-related-empty {
+    color: #8a8a8f;
+    font-size: 10px;
+  }
+
+  .macaw-graph-inspector-stats {
+    gap: 6px;
+  }
+
+  .macaw-graph-inspector-stats div {
+    padding: 8px;
+    border-color: #e2e3e6;
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  .macaw-graph-inspector-stats span {
+    color: #1d1d1f;
+    font-size: 11px;
+    font-weight: 650;
+  }
+
+  .macaw-graph-inspector-stats small,
+  .macaw-graph-related-head {
+    color: #929297;
+    font-size: 9px;
+    letter-spacing: 0.06em;
+  }
+
+  .macaw-graph-inspector-open {
+    width: calc(100% - 24px);
+    margin: 0 12px 12px;
+    padding: 7px 9px;
+    border-color: #d8dadd;
+    border-radius: 7px;
+    background: #fff;
+    color: #1d1d1f;
+    font-size: 11px;
+    font-weight: 550;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+
+  .macaw-graph-related-item {
+    gap: 7px;
+    min-height: 29px;
+    padding: 5px 6px;
+    border-radius: 6px;
+    color: #3a3a3c;
+    font-size: 10px;
+  }
+
+  .macaw-graph-related-dot {
+    width: 5px;
+    height: 5px;
+  }
+
   @media (max-width: 900px) {
     .macaw-wiki-card {
       height: calc(100dvh - 24px);
@@ -449,6 +674,26 @@
 /* Tasks share the centered, quiet surface language used by Settings and the chat composer. */
 @layer macaw-tasks {
   .macaw-tasks-overlay {
+    --tasks-blue: #526b8a;
+    --tasks-blue-deep: #445d7a;
+    --tasks-blue-soft: #eef2f5;
+    --tasks-blue-line: #cbd5dd;
+    --tasks-green: #6f806f;
+    --tasks-green-deep: #536653;
+    --tasks-green-soft: #f0f4ef;
+    --tasks-green-line: #cad5c8;
+    --tasks-amber: #9a7b55;
+    --tasks-amber-deep: #765d3f;
+    --tasks-amber-soft: #f6f1e9;
+    --tasks-amber-line: #dfd1bd;
+    --tasks-red: #9a6659;
+    --tasks-red-deep: #7d4e44;
+    --tasks-red-soft: #f8efed;
+    --tasks-red-line: #e2c9c3;
+    --tasks-plum: #796b86;
+    --tasks-plum-deep: #61546f;
+    --tasks-plum-soft: #f3eff5;
+    --tasks-plum-line: #d8cfdd;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
@@ -667,9 +912,37 @@
   .macaw-tasks-pill {
     padding: 2px 6px;
     border-radius: 999px;
+    background: #eff0f2;
+    color: #5f6065;
     font-size: 9px;
     font-weight: 650;
     letter-spacing: 0.04em;
+  }
+
+  .macaw-tasks-pill.active,
+  .macaw-tasks-pill.completed {
+    background: var(--tasks-green-soft);
+    color: var(--tasks-green-deep);
+  }
+
+  .macaw-tasks-pill.paused {
+    background: #eff0f2;
+    color: #68686d;
+  }
+
+  .macaw-tasks-pill.running {
+    background: var(--tasks-blue-soft);
+    color: var(--tasks-blue-deep);
+  }
+
+  .macaw-tasks-pill.failed {
+    background: var(--tasks-red-soft);
+    color: var(--tasks-red-deep);
+  }
+
+  .macaw-tasks-pill.silent {
+    background: var(--tasks-plum-soft);
+    color: var(--tasks-plum-deep);
   }
 
   .macaw-tasks-detail {
@@ -737,6 +1010,20 @@
     background: #f5f5f6;
   }
 
+  .macaw-tasks-actions button.danger,
+  .macaw-tasks-run-cancel {
+    border-color: var(--tasks-red-line);
+    background: #fff;
+    color: var(--tasks-red-deep);
+  }
+
+  .macaw-tasks-actions button.danger:hover,
+  .macaw-tasks-run-cancel:hover {
+    border-color: var(--tasks-red);
+    background: var(--tasks-red-soft);
+    color: var(--tasks-red-deep);
+  }
+
   .macaw-tasks-detail h3 {
     margin: 18px 0 8px;
     color: #68686d;
@@ -757,6 +1044,69 @@
 
   .macaw-tasks-run {
     padding: 10px 12px;
+  }
+
+  .macaw-tasks-run.failed {
+    border-color: var(--tasks-red-line);
+    background: var(--tasks-red-soft);
+  }
+
+  .macaw-tasks-error,
+  .macaw-tasks-run-error {
+    border-color: var(--tasks-red-line);
+    background: var(--tasks-red-soft);
+    color: var(--tasks-red-deep);
+  }
+
+  .macaw-tasks-item-step,
+  .macaw-tasks-run-progress {
+    border-color: var(--tasks-blue-line);
+    background: var(--tasks-blue-soft);
+    color: var(--tasks-blue-deep);
+  }
+
+  .macaw-tasks-run-attempts {
+    color: var(--tasks-amber-deep);
+  }
+
+  .macaw-tasks-model-apply {
+    border-color: var(--tasks-blue-line);
+    background: var(--tasks-blue-soft);
+    color: var(--tasks-blue-deep);
+  }
+
+  .macaw-tasks-model-apply:hover {
+    border-color: var(--tasks-blue);
+    background: #e6ebef;
+  }
+
+  .macaw-tasks-step-kind {
+    background: #eff0f2;
+    color: #5f6065;
+  }
+
+  .macaw-tasks-step-kind.kind-tool_running,
+  .macaw-tasks-step-kind.kind-tool_completed {
+    background: var(--tasks-blue-soft);
+    color: var(--tasks-blue-deep);
+  }
+
+  .macaw-tasks-step-kind.kind-tool_error,
+  .macaw-tasks-step-kind.kind-error {
+    background: var(--tasks-red-soft);
+    color: var(--tasks-red-deep);
+  }
+
+  .macaw-tasks-step-kind.kind-retry,
+  .macaw-tasks-step-kind.kind-timeout,
+  .macaw-tasks-step-kind.kind-cancelled {
+    background: var(--tasks-amber-soft);
+    color: var(--tasks-amber-deep);
+  }
+
+  .macaw-tasks-step-kind.kind-summary {
+    background: var(--tasks-green-soft);
+    color: var(--tasks-green-deep);
   }
 
   .macaw-tasks-banner {
@@ -1270,7 +1620,26 @@
 /* MACAW workspace: calm, aligned desktop surfaces with focused narrow-screen panels. */
 @layer macaw {
   .macaw-shell {
-    --macaw-blue: #007aff;
+    --macaw-blue: #526b8a;
+    --macaw-blue-deep: #445d7a;
+    --macaw-blue-soft: #eef2f5;
+    --macaw-blue-line: #cbd5dd;
+    --macaw-green: #6f806f;
+    --macaw-green-deep: #536653;
+    --macaw-green-soft: #f0f4ef;
+    --macaw-green-line: #cad5c8;
+    --macaw-amber: #9a7b55;
+    --macaw-amber-deep: #765d3f;
+    --macaw-amber-soft: #f6f1e9;
+    --macaw-amber-line: #dfd1bd;
+    --macaw-red: #9a6659;
+    --macaw-red-deep: #7d4e44;
+    --macaw-red-soft: #f8efed;
+    --macaw-red-line: #e2c9c3;
+    --macaw-plum: #796b86;
+    --macaw-plum-deep: #61546f;
+    --macaw-plum-soft: #f3eff5;
+    --macaw-plum-line: #d8cfdd;
     --macaw-text: #1d1d1f;
     --macaw-muted: #6e6e73;
     --macaw-line: rgba(60, 60, 67, 0.14);
@@ -1469,8 +1838,8 @@
 
   .macaw-item.active {
     border-color: transparent;
-    background: rgba(0, 122, 255, 0.12);
-    color: #0066d6;
+    background: var(--macaw-blue-soft);
+    color: var(--macaw-blue-deep);
   }
 
   .macaw-item-title {
@@ -1628,8 +1997,8 @@
   }
 
   .macaw-turn.user .macaw-bubble {
-    border-color: rgba(0, 122, 255, 0.12);
-    background: #eaf4ff;
+    border-color: var(--macaw-blue-line);
+    background: var(--macaw-blue-soft);
   }
 
   .macaw-turn-head {
@@ -1812,18 +2181,18 @@
 
   .macaw-step.running,
   .macaw-tool.active {
-    border-color: rgba(0, 122, 255, 0.28);
-    background: rgba(0, 122, 255, 0.07);
+    border-color: var(--macaw-blue-line);
+    background: var(--macaw-blue-soft);
   }
 
   .macaw-step.completed {
-    border-color: rgba(52, 199, 89, 0.25);
-    background: rgba(52, 199, 89, 0.07);
+    border-color: var(--macaw-green-line);
+    background: var(--macaw-green-soft);
   }
 
   .macaw-step.error {
-    border-color: rgba(255, 59, 48, 0.25);
-    background: rgba(255, 59, 48, 0.07);
+    border-color: var(--macaw-red-line);
+    background: var(--macaw-red-soft);
   }
 
   .macaw-inline-tools {
@@ -1886,6 +2255,178 @@
     padding: 0 10px;
     border-radius: 7px;
     font-size: 12px;
+  }
+
+  /* Keep every semantic state in the same muted, editorial palette. */
+  .macaw-item-running {
+    background: var(--macaw-blue);
+    box-shadow: 0 0 0 0 rgba(82, 107, 138, 0.36);
+    animation: macaw-pulse-calm 1.4s ease-out infinite;
+  }
+
+  .macaw-item-running:hover {
+    background: var(--macaw-red);
+    box-shadow: 0 0 0 2px rgba(154, 102, 89, 0.16);
+  }
+
+  @keyframes macaw-pulse-calm {
+    0% {
+      box-shadow: 0 0 0 0 rgba(82, 107, 138, 0.36);
+    }
+    70%,
+    100% {
+      box-shadow: 0 0 0 6px rgba(82, 107, 138, 0);
+    }
+  }
+
+  .macaw-item-delete:hover {
+    background: var(--macaw-red-soft);
+    color: var(--macaw-red-deep);
+  }
+
+  .macaw-dot {
+    background: var(--macaw-red);
+  }
+
+  .macaw-dot.on,
+  .macaw-question-tab.answered {
+    border-color: var(--macaw-green);
+    background: var(--macaw-green);
+  }
+
+  .macaw-settings-btn:hover,
+  .macaw-search:focus,
+  .macaw-mode:focus,
+  .macaw-select select:focus,
+  .macaw-host-trigger:hover,
+  .macaw-host-row:hover,
+  .macaw-host-row.active {
+    border-color: var(--macaw-blue-line);
+    background: var(--macaw-blue-soft);
+    color: var(--macaw-blue-deep);
+  }
+
+  .macaw-inline-tool.running,
+  .macaw-todo-plan.live,
+  .macaw-reasoning-active,
+  .macaw-subagent.running,
+  .macaw-shell-tool.running {
+    border-color: var(--macaw-blue-line);
+    background: var(--macaw-blue-soft);
+  }
+
+  .macaw-inline-tool.completed,
+  .macaw-subagent.completed,
+  .macaw-shell-tool.completed {
+    border-color: var(--macaw-green-line);
+    background: var(--macaw-green-soft);
+  }
+
+  .macaw-inline-tool.error,
+  .macaw-subagent.error,
+  .macaw-shell-tool.error,
+  .macaw-error {
+    border-color: var(--macaw-red-line);
+    background: var(--macaw-red-soft);
+    color: var(--macaw-red-deep);
+  }
+
+  .macaw-todo-icon span,
+  .macaw-todo-item.in_progress .macaw-todo-marker,
+  .macaw-question-tab.active,
+  .macaw-question-option.picked,
+  .macaw-question-mark[data-on="true"] {
+    border-color: var(--macaw-blue);
+    background: var(--macaw-blue-soft);
+    color: var(--macaw-blue-deep);
+    box-shadow: none;
+  }
+
+  .macaw-todo-item.in_progress .macaw-todo-marker span,
+  .macaw-question-mark[data-on="true"] {
+    background: var(--macaw-blue);
+  }
+
+  .macaw-question-next {
+    background: var(--macaw-blue);
+    color: #fff;
+  }
+
+  .macaw-question-next:hover {
+    background: var(--macaw-blue-deep);
+  }
+
+  .macaw-permission {
+    border-color: var(--macaw-amber-line);
+    background: var(--macaw-amber-soft);
+  }
+
+  .macaw-permission-head,
+  .macaw-permission-tool {
+    color: var(--macaw-amber-deep);
+  }
+
+  .macaw-permission-pattern {
+    background: rgba(154, 123, 85, 0.12);
+  }
+
+  .macaw-permission-reject,
+  .macaw-send.macaw-stop {
+    border-color: var(--macaw-red-line);
+    background: var(--macaw-red-soft);
+    color: var(--macaw-red-deep);
+  }
+
+  .macaw-permission-always {
+    background: var(--macaw-amber);
+    color: #fff;
+  }
+
+  .macaw-subagent.running .macaw-subagent-status,
+  .macaw-shell-tool.running .macaw-shell-tool-status {
+    background: var(--macaw-blue-soft);
+    color: var(--macaw-blue-deep);
+  }
+
+  .macaw-subagent.completed .macaw-subagent-status,
+  .macaw-shell-tool.completed .macaw-shell-tool-status {
+    background: var(--macaw-green-soft);
+    color: var(--macaw-green-deep);
+  }
+
+  .macaw-subagent.error .macaw-subagent-status,
+  .macaw-shell-tool.error .macaw-shell-tool-status,
+  .macaw-attach-remove:hover {
+    background: var(--macaw-red-soft);
+    color: var(--macaw-red-deep);
+  }
+
+  .macaw-attached-icon,
+  .macaw-attach-file {
+    background: var(--macaw-blue-soft);
+    color: var(--macaw-blue-deep);
+  }
+
+  .macaw-host-star.on,
+  .macaw-host-star:hover {
+    background: var(--macaw-amber-soft);
+    color: var(--macaw-amber-deep);
+  }
+
+  .macaw-toasts .macaw-toast {
+    border-left-color: var(--macaw-blue);
+  }
+
+  .macaw-toasts .macaw-toast-idle {
+    border-left-color: var(--macaw-green);
+  }
+
+  .macaw-toasts .macaw-toast-question {
+    border-left-color: var(--macaw-plum);
+  }
+
+  .macaw-toasts .macaw-toast-permission {
+    border-left-color: var(--macaw-amber);
   }
 
   .macaw-scrim {

@@ -216,7 +216,7 @@ test("typing a UI font with spaces persists and updates CSS variable", async ({ 
   const dialog = await openSettings(page)
   const input = dialog.locator(settingsUIFontSelector)
   await expect(input).toBeVisible()
-  await expect(input).toHaveAttribute("placeholder", "System Sans")
+  await expect(input).toHaveAttribute("placeholder", "Inter")
 
   const initialFontFamily = await page.evaluate(() =>
     getComputedStyle(document.documentElement).getPropertyValue("--font-family-sans").trim(),
@@ -224,7 +224,7 @@ test("typing a UI font with spaces persists and updates CSS variable", async ({ 
   const initialCodeFamily = await page.evaluate(() =>
     getComputedStyle(document.documentElement).getPropertyValue("--font-family-mono").trim(),
   )
-  expect(initialFontFamily).toContain("ui-sans-serif")
+  expect(initialFontFamily).toContain("Inter")
 
   const next = "Test Sans"
 
@@ -333,7 +333,7 @@ test("clearing the UI font field restores the default placeholder and stack", as
   await input.clear()
   await input.press("Space")
   await expect(input).toHaveValue("")
-  await expect(input).toHaveAttribute("placeholder", "System Sans")
+  await expect(input).toHaveAttribute("placeholder", "Inter")
 
   await expect
     .poll(async () => {
@@ -351,7 +351,7 @@ test("clearing the UI font field restores the default placeholder and stack", as
   const fontFamily = await page.evaluate(() =>
     getComputedStyle(document.documentElement).getPropertyValue("--font-family-sans").trim(),
   )
-  expect(fontFamily).toContain("ui-sans-serif")
+  expect(fontFamily).toContain("Inter")
   expect(fontFamily).not.toContain("Reset Sans")
 })
 

@@ -42,6 +42,7 @@
     "vite-plugin-solid": "catalog:"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "5.2.8",
     "@kobalte/core": "catalog:",
     "@macaw/sdk": "workspace:*",
     "@macaw/util": "workspace:*",
