@@ -27,6 +27,7 @@
     "src/index.ts",
     "src/macaw.tsx",
     "src/memory-graph.tsx",
+    "src/memory-graph-layout.ts",
     "src/tasks-view.tsx",
     "src/components/turn.tsx",
     "src/constants/file-picker.ts",

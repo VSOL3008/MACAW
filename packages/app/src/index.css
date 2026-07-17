@@ -374,41 +374,37 @@
 
   .macaw-graph-map {
     background:
-      radial-gradient(circle at 50% 44%, rgba(60, 60, 67, 0.035), transparent 38%),
+      radial-gradient(circle at 48% 42%, rgba(82, 107, 138, 0.07), transparent 32%),
+      radial-gradient(circle at 78% 76%, rgba(121, 107, 134, 0.035), transparent 26%),
       var(--mg-surface);
   }
 
   .macaw-graph-map::before {
-    background-size: 24px 24px;
-    opacity: 0.65;
+    background-size: 20px 20px;
+    opacity: 0.52;
     -webkit-mask-image: radial-gradient(circle at center, #000 18%, transparent 78%);
     mask-image: radial-gradient(circle at center, #000 18%, transparent 78%);
   }
 
-  .macaw-graph-cluster-ring {
-    fill-opacity: 0.018;
-    stroke-opacity: 0.14;
-    stroke-dasharray: 3 6;
+  .macaw-graph-map::after {
+    box-shadow:
+      inset 0 0 100px rgba(58, 66, 78, 0.035),
+      inset 0 0 0 1px rgba(60, 60, 67, 0.055);
   }
 
-  .macaw-graph-cluster-name {
-    fill: currentColor;
-    fill-opacity: 0.82;
-    stroke: var(--mg-surface);
-    stroke-width: 5px;
-    font-size: 9px;
-    font-weight: 650;
-    letter-spacing: 0.08em;
+  .macaw-graph-field {
+    opacity: 0.07;
+    filter: blur(15px);
   }
 
   .macaw-graph-node-fill {
     stroke: rgba(255, 255, 255, 0.96);
     stroke-width: 1.5;
-    filter: none;
+    filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.14));
   }
 
   .macaw-graph-node-halo {
-    stroke-width: 4;
+    stroke-width: 1.5;
   }
 
   .macaw-graph-node.linked .macaw-graph-node-fill {
@@ -417,28 +413,31 @@
 
   .macaw-graph-node:hover .macaw-graph-node-fill,
   .macaw-graph-node.selected .macaw-graph-node-fill {
-    filter: none;
-    stroke: #1d1d1f;
+    filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.2));
+    stroke: rgba(255, 255, 255, 0.98);
     stroke-width: 2;
   }
 
-  .macaw-graph-node:hover .macaw-graph-node-halo,
+  .macaw-graph-node:hover .macaw-graph-node-halo {
+    opacity: 0.2;
+  }
+
   .macaw-graph-node:focus-visible .macaw-graph-node-halo,
   .macaw-graph-node.selected .macaw-graph-node-halo {
-    opacity: 0.1;
+    opacity: 0.52;
   }
 
   .macaw-graph-node:focus-visible .macaw-graph-node-fill {
-    stroke: #1d1d1f;
+    stroke: rgba(255, 255, 255, 1);
     stroke-width: 2;
   }
 
   .macaw-graph-node-label {
-    fill: #57585d;
+    fill: #4c515a;
     stroke: rgba(251, 251, 252, 0.95);
-    stroke-width: 5px;
+    stroke-width: 5.5px;
     font-size: 10px;
-    font-weight: 500;
+    font-weight: 550;
   }
 
   .macaw-graph-node:hover .macaw-graph-node-label,
@@ -449,7 +448,7 @@
   }
 
   .macaw-graph-node.dim {
-    opacity: 0.16;
+    opacity: 0.12;
   }
 
   .macaw-graph-legend,
@@ -462,9 +461,11 @@
   }
 
   .macaw-graph-legend {
-    gap: 5px;
-    padding: 8px 9px;
-    border-radius: 9px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(74px, auto));
+    gap: 5px 11px;
+    padding: 9px 10px;
+    border-radius: 10px;
     font-size: 9px;
   }
 
@@ -490,8 +491,10 @@
   }
 
   .macaw-graph-legend-dot {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 0 1px rgba(60, 60, 67, 0.08);
   }
 
   .macaw-graph-legend-count {
@@ -4705,6 +4708,17 @@
     mask-image: radial-gradient(circle at center, #000 25%, transparent 82%);
   }
 
+  .macaw-graph-map::after {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    content: "";
+    pointer-events: none;
+    box-shadow:
+      inset 0 0 90px rgba(5, 8, 22, 0.2),
+      inset 0 0 0 1px rgba(148, 163, 184, 0.06);
+  }
+
   .macaw-graph-canvas,
   .macaw-graph-svg {
     position: absolute;
@@ -4727,62 +4741,35 @@
     cursor: grabbing;
   }
 
-  .macaw-graph-cluster {
+  .macaw-graph-field {
     pointer-events: none;
-    color: var(--mg-other);
+    fill: var(--mg-other);
+    opacity: 0.055;
+    filter: blur(12px);
   }
 
-  .macaw-graph-cluster[data-category="core"] {
-    color: var(--mg-core);
+  .macaw-graph-field[data-category="core"] {
+    fill: var(--mg-core);
   }
-  .macaw-graph-cluster[data-category="entities"] {
-    color: var(--mg-entities);
+  .macaw-graph-field[data-category="entities"] {
+    fill: var(--mg-entities);
   }
-  .macaw-graph-cluster[data-category="projects"] {
-    color: var(--mg-projects);
+  .macaw-graph-field[data-category="projects"] {
+    fill: var(--mg-projects);
   }
-  .macaw-graph-cluster[data-category="preferences"] {
-    color: var(--mg-preferences);
+  .macaw-graph-field[data-category="preferences"] {
+    fill: var(--mg-preferences);
   }
-  .macaw-graph-cluster[data-category="facts"] {
-    color: var(--mg-facts);
+  .macaw-graph-field[data-category="facts"] {
+    fill: var(--mg-facts);
   }
-  .macaw-graph-cluster[data-category="skills"] {
-    color: var(--mg-skills);
-  }
-
-  .macaw-graph-cluster-ring {
-    fill: currentColor;
-    fill-opacity: 0.025;
-    stroke: currentColor;
-    stroke-opacity: 0.18;
-    stroke-width: 1;
-    stroke-dasharray: 4 5;
-    vector-effect: non-scaling-stroke;
-  }
-
-  .macaw-graph-cluster-name,
-  .macaw-graph-cluster-count {
-    fill: rgba(226, 232, 240, 0.52);
-    text-anchor: middle;
-    text-transform: uppercase;
-    user-select: none;
-    pointer-events: none;
-  }
-
-  .macaw-graph-cluster-name {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.11em;
-    paint-order: stroke fill;
-    stroke: var(--mg-surface);
-    stroke-width: 4px;
-    stroke-linejoin: round;
-    fill: currentColor;
+  .macaw-graph-field[data-category="skills"] {
+    fill: var(--mg-skills);
   }
 
   .macaw-graph-node {
     cursor: pointer;
+    outline: none;
     transition: opacity 160ms ease;
   }
 
@@ -4792,7 +4779,7 @@
 
   .macaw-graph-node:focus-visible .macaw-graph-node-fill {
     stroke: rgba(244, 247, 255, 0.95);
-    stroke-width: 2.5;
+    stroke-width: 2;
   }
 
   .macaw-graph-node-hit {
@@ -4804,7 +4791,7 @@
   .macaw-graph-node-halo {
     fill: none;
     stroke: currentColor;
-    stroke-width: 5;
+    stroke-width: 1.5;
     opacity: 0;
     pointer-events: none;
     vector-effect: non-scaling-stroke;
@@ -4813,8 +4800,8 @@
 
   .macaw-graph-node-fill {
     fill: var(--mg-other);
-    stroke: rgba(5, 8, 22, 0.6);
-    stroke-width: 1;
+    stroke: rgba(244, 247, 255, 0.84);
+    stroke-width: 1.5;
     pointer-events: none;
     vector-effect: non-scaling-stroke;
     transition:
@@ -4864,20 +4851,23 @@
   }
 
   .macaw-graph-node.linked .macaw-graph-node-fill {
-    filter: brightness(1.1);
+    filter: brightness(1.05);
   }
 
   .macaw-graph-node:hover .macaw-graph-node-fill,
   .macaw-graph-node.selected .macaw-graph-node-fill {
-    filter: brightness(1.25);
+    filter: brightness(1.12) drop-shadow(0 2px 4px rgba(5, 8, 22, 0.3));
     stroke: rgba(244, 247, 255, 0.95);
-    stroke-width: 2.5;
+    stroke-width: 2;
   }
 
-  .macaw-graph-node:hover .macaw-graph-node-halo,
+  .macaw-graph-node:hover .macaw-graph-node-halo {
+    opacity: 0.18;
+  }
+
   .macaw-graph-node:focus-visible .macaw-graph-node-halo,
   .macaw-graph-node.selected .macaw-graph-node-halo {
-    opacity: 0.22;
+    opacity: 0.52;
   }
 
   .macaw-graph-node-label {
@@ -6666,17 +6656,6 @@
     --mg-surface: #ffffff;
   }
 
-  .macaw-graph-cluster-ring {
-    fill-opacity: 0.025;
-    stroke: currentColor;
-    stroke-opacity: 0.16;
-  }
-
-  .macaw-graph-cluster-name,
-  .macaw-graph-cluster-count {
-    fill: currentColor;
-  }
-
   .macaw-graph-node-fill {
     stroke: #ffffff;
     stroke-width: 1.5;
@@ -6684,7 +6663,7 @@
 
   .macaw-graph-node:hover .macaw-graph-node-fill,
   .macaw-graph-node.selected .macaw-graph-node-fill {
-    stroke: #0f172a;
+    stroke: #ffffff;
     stroke-width: 2;
   }
 
