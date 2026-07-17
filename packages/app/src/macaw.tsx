@@ -13,6 +13,7 @@ import type {
   ToolPart,
 } from "@macaw/sdk/v2/client"
 import { Markdown } from "@macaw/ui/markdown"
+import { Mark } from "@macaw/ui/logo"
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import { useCommand } from "@/context/command"
@@ -2066,7 +2067,10 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
 
       <aside id="macaw-side" class="macaw-side" aria-label="Sessions">
         <div class="macaw-brand">
-          <div class="macaw-mark">MACAW</div>
+          <div class="macaw-mark">
+            <Mark class="macaw-mark-logo" />
+            <span class="macaw-mark-word">MACAW</span>
+          </div>
           <button type="button" class="macaw-panel-close" aria-label="Close sessions" onClick={() => panel("side")}>
             <svg viewBox="0 0 20 20" aria-hidden="true">
               <path d="M5 5l10 10M15 5L5 15" />

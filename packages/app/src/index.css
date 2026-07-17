@@ -1716,10 +1716,29 @@
   }
 
   .macaw-mark {
+    display: flex;
+    align-items: center;
+    gap: 9px;
     color: var(--macaw-text);
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.08em;
+  }
+
+  .macaw-mark-logo {
+    display: block;
+    width: 28px;
+    height: 29px;
+    flex: none;
+  }
+
+  .macaw-mark-word {
+    color: #273442;
+    font-size: 13px;
+    font-weight: 750;
+    line-height: 1;
+    letter-spacing: 0.16em;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
   }
 
   .macaw-toolbar {

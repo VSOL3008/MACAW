@@ -24,6 +24,7 @@
   "include": [
     "src/app.tsx",
     "src/custom-elements.d.ts",
+    "src/sst-env.d.ts",
     "src/index.ts",
     "src/macaw.tsx",
     "src/memory-graph.tsx",

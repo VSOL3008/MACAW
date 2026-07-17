@@ -2,7 +2,7 @@
 import * as mod from "./logo"
 
 const docs = `### Overview
-OpenCode logo assets: mark, splash, and wordmark.
+Macaw logo assets: mark, splash, and wide-layout logo.
 
 Use Mark for compact spaces, Logo for headers, Splash for hero sections.
 
