@@ -62,7 +62,8 @@ type Notify = {
 }
 
 type Settings = {
-  kind: "ollama" | "azure"
+  kind: "ollama" | "azure" | "custom"
+  id: string
   url: string
   key: string
   model: string
@@ -74,6 +75,8 @@ type Settings = {
 const AZURE = "azure-foundry"
 const AZURE_NAME = "Azure AI Foundry"
 const AZURE_MODEL = "gpt-4o"
+const CUSTOM_NAME = "Custom Provider"
+const CUSTOM_MODEL = ""
 const PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
 type Deck = {
@@ -151,13 +154,24 @@ function seed(cfg?: Config, host = "", note = alerts(), fallback = loadAutoFallb
   const item = cfg?.provider?.[AZURE]
   const pick = split(host)
   const url = typeof item?.options?.baseURL === "string" ? item.options.baseURL : read("macaw.azure.url") ?? ""
+  const cid = read("macaw.custom.id") ?? ""
+  const custom = cid ? cfg?.provider?.[cid] : undefined
+  const kind = pick.provider === AZURE ? "azure" : (cid && pick.provider === cid) ? "custom" : "ollama"
   return {
-    kind: pick.provider === AZURE ? "azure" : "ollama",
-    url: azure(url),
-    key: typeof item?.options?.apiKey === "string" ? item.options.apiKey : "",
-    model:
-      (pick.provider === AZURE ? pick.model : Object.keys(item?.models ?? {})[0]) || read("macaw.azure.model") || AZURE_MODEL,
-    name: item?.name ?? read("macaw.azure.name") ?? AZURE_NAME,
+    kind,
+    id: cid,
+    url: kind === "custom"
+      ? (typeof custom?.options?.baseURL === "string" ? custom.options.baseURL : read("macaw.custom.url") ?? "")
+      : azure(url),
+    key: kind === "custom"
+      ? (typeof custom?.options?.apiKey === "string" ? custom.options.apiKey : "")
+      : (typeof item?.options?.apiKey === "string" ? item.options.apiKey : ""),
+    model: kind === "custom"
+      ? (pick.provider === cid ? pick.model : Object.keys(custom?.models ?? {})[0] ?? read("macaw.custom.model") ?? CUSTOM_MODEL)
+      : ((pick.provider === AZURE ? pick.model : Object.keys(item?.models ?? {})[0]) || read("macaw.azure.model") || AZURE_MODEL),
+    name: kind === "custom"
+      ? (custom?.name ?? read("macaw.custom.name") ?? CUSTOM_NAME)
+      : (item?.name ?? read("macaw.azure.name") ?? AZURE_NAME),
     notify: { ...note },
     fallback,
   }
@@ -239,6 +253,11 @@ function shape(providers: Provider[]) {
   )
 }
 
+function active(providers: Provider[], ids: string[]) {
+  const set = new Set(ids)
+  return providers.filter((provider) => set.has(provider.id))
+}
+
 function pickHost(providers: Provider[]) {
   const saved = read("macaw.host")
   if (saved) {
@@ -289,7 +308,7 @@ type Toast = {
 }
 
 function providerCacheKey(server: ServerConnection.Any) {
-  return `macaw.providers:${server.http.url}`
+  return `macaw.providers.v2:${server.http.url}`
 }
 
 function loadCachedProviders(server: ServerConnection.Any): Provider[] {
@@ -574,6 +593,9 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     }
     add(start)
     for (const fav of state.favorites) add(fav)
+    if (out.length === 1) {
+      for (const item of models()) add(pack(item))
+    }
     return out
   }
 
@@ -698,7 +720,7 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
       .list()
       .then((res) => {
         if (!alive()) return
-        const all = res.data?.all ?? []
+        const all = active(res.data?.all ?? [], res.data?.connected ?? [])
         apply(all, dir)
       })
       .catch((err) => {
@@ -807,13 +829,11 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
 
   async function sendPrompt(sessionID: string, agent: string, host: string, text: string, attachments: Attachment[]) {
     const pick = split(host)
+    const modelParam = pick.provider && pick.model ? { providerID: pick.provider, modelID: pick.model } : undefined
     await client().session.promptAsync({
       sessionID,
       agent,
-      model: {
-        providerID: pick.provider,
-        modelID: pick.model,
-      },
+      ...(modelParam ? { model: modelParam } : {}),
       parts: [
         ...attachments.map((item) => ({
           type: "file" as const,
@@ -1093,7 +1113,8 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
     const form = state.settings
     const nextURL = form.kind === "azure" ? azure(form.url) : form.url.trim()
     const nextModel = form.model.trim()
-    const nextName = form.name.trim() || AZURE_NAME
+    const nextName = form.name.trim() || (form.kind === "azure" ? AZURE_NAME : form.kind === "custom" ? CUSTOM_NAME : "")
+    const nextID = form.id.trim().replace(/\s+/g, "-").toLowerCase()
     if (form.kind === "azure" && !nextURL) {
       setState("settingsError", "Proxy URL is required.")
       return
@@ -1102,12 +1123,25 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
       setState("settingsError", "Model is required.")
       return
     }
+    if (form.kind === "custom" && !nextID) {
+      setState("settingsError", "Provider ID is required.")
+      return
+    }
+    if (form.kind === "custom" && !nextURL) {
+      setState("settingsError", "Base URL is required.")
+      return
+    }
+    if (form.kind === "custom" && !nextModel) {
+      setState("settingsError", "Model is required.")
+      return
+    }
     setState({
       settingsBusy: true,
       settingsError: "",
     })
 
-    if (form.kind === "azure") {
+    if (form.kind === "azure" || form.kind === "custom") {
+      const pid = form.kind === "azure" ? AZURE : nextID
       const res = await root()
         .global.config.get()
         .catch((err) => {
@@ -1119,12 +1153,12 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
         setState("settingsBusy", false)
         return
       }
-      const prev = cfg.provider?.[AZURE]
+      const prev = cfg.provider?.[pid]
       const nextKey = form.key.trim() || (typeof prev?.options?.apiKey === "string" ? prev.options.apiKey : "")
       const next: Config = {
         provider: {
-          [AZURE]: {
-            name: nextName,
+          [pid]: {
+            name: nextName || pid,
             npm: "@ai-sdk/openai-compatible",
             env: prev?.env ?? [],
             options: {
@@ -1160,9 +1194,21 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
       await root()
         .global.dispose()
         .catch(() => undefined)
-      write("macaw.azure.url", nextURL)
-      write("macaw.azure.model", nextModel)
-      write("macaw.azure.name", nextName)
+      if (state.dir) {
+        await client(state.dir)
+          .global.dispose()
+          .catch(() => undefined)
+      }
+      if (form.kind === "azure") {
+        write("macaw.azure.url", nextURL)
+        write("macaw.azure.model", nextModel)
+        write("macaw.azure.name", nextName)
+      } else {
+        write("macaw.custom.id", nextID)
+        write("macaw.custom.url", nextURL)
+        write("macaw.custom.model", nextModel)
+        write("macaw.custom.name", nextName)
+      }
     }
 
     const res = await client(state.dir)
@@ -1175,16 +1221,18 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
       setState("settingsBusy", false)
       return
     }
-    const all = res.data?.all ?? []
+    const all = active(res.data?.all ?? [], res.data?.connected ?? [])
     const hit = shape(all).find((item) => item.provider === "ollama")
     apply(
       all,
       state.dir,
       form.kind === "azure"
         ? pack({ provider: AZURE, model: nextModel })
-        : hit
-          ? pack(hit)
-          : undefined,
+        : form.kind === "custom"
+          ? pack({ provider: nextID, model: nextModel })
+          : hit
+            ? pack(hit)
+            : undefined,
     )
     setState("notify", { ...form.notify })
     setState("autoFallback", form.fallback)
@@ -2127,6 +2175,17 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
                   >
                     Azure AI Foundry
                   </button>
+                  <button
+                    type="button"
+                    class="macaw-settings-pick"
+                    classList={{ active: state.settings.kind === "custom" }}
+                    onClick={() => {
+                      setState("settings", "kind", "custom")
+                      setState("settingsError", "")
+                    }}
+                  >
+                    Custom API
+                  </button>
                 </div>
                 <Show when={state.settings.kind === "azure"}>
                   <div class="macaw-settings-fields">
@@ -2160,6 +2219,51 @@ export function MacawApp(props: { server: ServerConnection.Any }) {
                       <input
                         value={state.settings.name}
                         placeholder={AZURE_NAME}
+                        onInput={(event) => setState("settings", "name", event.currentTarget.value)}
+                      />
+                    </label>
+                  </div>
+                </Show>
+                <Show when={state.settings.kind === "custom"}>
+                  <div class="macaw-settings-fields">
+                    <label class="macaw-settings-field">
+                      <span>Provider ID</span>
+                      <input
+                        value={state.settings.id}
+                        placeholder="my-provider"
+                        onInput={(event) => setState("settings", "id", event.currentTarget.value)}
+                      />
+                    </label>
+                    <label class="macaw-settings-field">
+                      <span>Base URL</span>
+                      <input
+                        value={state.settings.url}
+                        placeholder="https://api.example.com/v1"
+                        onInput={(event) => setState("settings", "url", event.currentTarget.value)}
+                      />
+                    </label>
+                    <label class="macaw-settings-field">
+                      <span>API Key</span>
+                      <input
+                        type="password"
+                        value={state.settings.key}
+                        placeholder="Optional"
+                        onInput={(event) => setState("settings", "key", event.currentTarget.value)}
+                      />
+                    </label>
+                    <label class="macaw-settings-field">
+                      <span>Model</span>
+                      <input
+                        value={state.settings.model}
+                        placeholder="model-name"
+                        onInput={(event) => setState("settings", "model", event.currentTarget.value)}
+                      />
+                    </label>
+                    <label class="macaw-settings-field">
+                      <span>Display Name</span>
+                      <input
+                        value={state.settings.name}
+                        placeholder={CUSTOM_NAME}
                         onInput={(event) => setState("settings", "name", event.currentTarget.value)}
                       />
                     </label>

@@ -2,12 +2,10 @@ import { Button } from "@opencode-ai/ui/button"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { List, type ListRef } from "@opencode-ai/ui/list"
-import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
 import { Tag } from "@opencode-ai/ui/tag"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { type Component, Show } from "solid-js"
 import { useLocal } from "@/context/local"
-import { popularProviders, useProviders } from "@/hooks/use-providers"
 import { ModelTooltip } from "./model-tooltip"
 import { useLanguage } from "@/context/language"
 
@@ -16,18 +14,11 @@ type ModelState = ReturnType<typeof useLocal>["model"]
 export const DialogSelectModelUnpaid: Component<{ model?: ModelState }> = (props) => {
   const model = props.model ?? useLocal().model
   const dialog = useDialog()
-  const providers = useProviders()
   const language = useLanguage()
 
-  const connect = (provider: string) => {
-    void import("./dialog-connect-provider").then((x) => {
-      dialog.show(() => <x.DialogConnectProvider provider={provider} />)
-    })
-  }
-
-  const all = () => {
-    void import("./dialog-select-provider").then((x) => {
-      dialog.show(() => <x.DialogSelectProvider />)
+  const settings = () => {
+    void import("./dialog-settings").then((x) => {
+      dialog.show(() => <x.DialogSettings tab="providers" />)
     })
   }
 
@@ -89,52 +80,13 @@ export const DialogSelectModelUnpaid: Component<{ model?: ModelState }> = (props
           <div class="w-full flex flex-col items-start gap-4 px-1.5 pt-4 pb-4">
             <div class="px-2 text-14-medium text-text-base">{language.t("dialog.model.unpaid.addMore.title")}</div>
             <div class="w-full">
-              <List
-                class="w-full px-0"
-                key={(x) => x?.id}
-                items={providers.popular}
-                activeIcon="plus-small"
-                sortBy={(a, b) => {
-                  if (popularProviders.includes(a.id) && popularProviders.includes(b.id))
-                    return popularProviders.indexOf(a.id) - popularProviders.indexOf(b.id)
-                  return a.name.localeCompare(b.name)
-                }}
-                onSelect={(x) => {
-                  if (!x) return
-                  connect(x.id)
-                }}
-              >
-                {(i) => (
-                  <div class="w-full flex items-center gap-x-3">
-                    <ProviderIcon data-slot="list-item-extra-icon" id={i.id} />
-                    <span>{i.name}</span>
-                    <Show when={i.id === "opencode"}>
-                      <div class="text-14-regular text-text-weak">{language.t("dialog.provider.opencode.tagline")}</div>
-                    </Show>
-                    <Show when={i.id === "opencode"}>
-                      <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
-                    </Show>
-                    <Show when={i.id === "opencode-go"}>
-                      <>
-                        <div class="text-14-regular text-text-weak">
-                          {language.t("dialog.provider.opencodeGo.tagline")}
-                        </div>
-                        <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
-                      </>
-                    </Show>
-                    <Show when={i.id === "anthropic"}>
-                      <div class="text-14-regular text-text-weak">{language.t("dialog.provider.anthropic.note")}</div>
-                    </Show>
-                  </div>
-                )}
-              </List>
               <Button
                 variant="ghost"
                 class="w-full justify-start px-[11px] py-3.5 gap-4.5 text-14-medium"
-                icon="dot-grid"
-                onClick={all}
+                icon="providers"
+                onClick={settings}
               >
-                {language.t("dialog.provider.viewAll")}
+                {language.t("command.settings.open")}
               </Button>
             </div>
           </div>

@@ -12,6 +12,7 @@ import { makeRuntime } from "@/effect/run-service"
 import { errorMessage } from "@/util/error"
 import { PluginLoader } from "./loader"
 import { parsePluginSpecifier, readPluginId, readV1Plugin, resolvePluginId } from "./shared"
+import { Provider } from "../provider/provider"
 
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
@@ -211,6 +212,7 @@ export namespace Plugin {
               },
             }).pipe(Effect.ignore)
           }
+          yield* Effect.promise(() => Provider.reset().catch(() => {}))
 
           // Subscribe to bus events, fiber interrupted when scope closes
           yield* bus.subscribeAll().pipe(

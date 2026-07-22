@@ -115,7 +115,7 @@ const ModelList: Component<{
 }
 
 type ModelSelectorTriggerProps = Omit<ComponentProps<typeof Kobalte.Trigger>, "as" | "ref">
-type Dismiss = "escape" | "outside" | "select" | "manage" | "provider"
+type Dismiss = "escape" | "outside" | "select" | "manage" | "settings"
 
 export function ModelSelectorPopover(props: {
   provider?: string
@@ -146,10 +146,10 @@ export function ModelSelectorPopover(props: {
     })
   }
 
-  const handleConnectProvider = () => {
-    close("provider")
-    void import("./dialog-select-provider").then((x) => {
-      dialog.show(() => <x.DialogSelectProvider />)
+  const settings = () => {
+    close("settings")
+    void import("./dialog-settings").then((x) => {
+      dialog.show(() => <x.DialogSettings tab="providers" />)
     })
   }
   const language = useLanguage()
@@ -196,14 +196,14 @@ export function ModelSelectorPopover(props: {
             class="p-1"
             action={
               <div class="flex items-center gap-1">
-                <Tooltip placement="top" value={language.t("command.provider.connect")}>
+                <Tooltip placement="top" value={language.t("settings.providers.title")}>
                   <IconButton
-                    icon="plus-small"
+                    icon="providers"
                     variant="ghost"
                     iconSize="normal"
                     class="size-6"
-                    aria-label={language.t("command.provider.connect")}
-                    onClick={handleConnectProvider}
+                    aria-label={language.t("settings.providers.title")}
+                    onClick={settings}
                   />
                 </Tooltip>
                 <Tooltip placement="top" value={language.t("dialog.model.manage")}>
@@ -229,9 +229,9 @@ export const DialogSelectModel: Component<{ provider?: string; model?: ModelStat
   const dialog = useDialog()
   const language = useLanguage()
 
-  const provider = () => {
-    void import("./dialog-select-provider").then((x) => {
-      dialog.show(() => <x.DialogSelectProvider />)
+  const settings = () => {
+    void import("./dialog-settings").then((x) => {
+      dialog.show(() => <x.DialogSettings tab="providers" />)
     })
   }
 
@@ -245,8 +245,8 @@ export const DialogSelectModel: Component<{ provider?: string; model?: ModelStat
     <Dialog
       title={language.t("dialog.model.select.title")}
       action={
-        <Button class="h-7 -my-1 text-14-medium" icon="plus-small" tabIndex={-1} onClick={provider}>
-          {language.t("command.provider.connect")}
+        <Button class="h-7 -my-1 text-14-medium" icon="providers" tabIndex={-1} onClick={settings}>
+          {language.t("command.settings.open")}
         </Button>
       }
     >

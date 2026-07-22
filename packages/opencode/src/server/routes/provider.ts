@@ -38,8 +38,9 @@ export const ProviderRoutes = lazy(() =>
       }),
       async (c) => {
         const providers = await Provider.list()
+        const catalog = await Provider.all()
         return c.json({
-          all: Object.values(providers),
+          all: Object.values(catalog),
           default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
           connected: Object.keys(providers),
         })

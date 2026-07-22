@@ -83,7 +83,17 @@ export function createOpenaiCompatible(options: OpenaiCompatibleProviderSettings
     })
   }
 
-  const createLanguageModel = (modelId: OpenaiCompatibleModelId) => createChatModel(modelId)
+  const createLanguageModel = (modelId: OpenaiCompatibleModelId) => {
+    if (
+      modelId.includes("sol") ||
+      (modelId.startsWith("gpt-5") && !modelId.includes("-chat")) ||
+      modelId.startsWith("o3") ||
+      modelId.startsWith("o4")
+    ) {
+      return createResponsesModel(modelId)
+    }
+    return createChatModel(modelId)
+  }
 
   const provider = function (modelId: OpenaiCompatibleModelId) {
     return createChatModel(modelId)

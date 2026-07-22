@@ -1041,9 +1041,9 @@ export default function Layout(props: ParentProps) {
       },
       {
         id: "provider.connect",
-        title: language.t("command.provider.connect"),
+        title: language.t("settings.providers.title"),
         category: language.t("command.category.provider"),
-        onSelect: () => connectProvider(),
+        onSelect: () => openSettings("providers"),
       },
       {
         id: "server.switch",
@@ -1194,14 +1194,6 @@ export default function Layout(props: ParentProps) {
     return commands
   })
 
-  function connectProvider() {
-    const run = ++dialogRun
-    void import("@/components/dialog-select-provider").then((x) => {
-      if (dialogDead || dialogRun !== run) return
-      dialog.show(() => <x.DialogSelectProvider />)
-    })
-  }
-
   function openServer() {
     const run = ++dialogRun
     void import("@/components/dialog-select-server").then((x) => {
@@ -1210,11 +1202,11 @@ export default function Layout(props: ParentProps) {
     })
   }
 
-  function openSettings() {
+  function openSettings(tab?: "providers") {
     const run = ++dialogRun
     void import("@/components/dialog-settings").then((x) => {
       if (dialogDead || dialogRun !== run) return
-      dialog.show(() => <x.DialogSettings />)
+      dialog.show(() => <x.DialogSettings tab={tab} />)
     })
   }
 
@@ -2310,8 +2302,8 @@ export default function Layout(props: ParentProps) {
                 </div>
               </div>
               <div data-component="getting-started-actions">
-                <Button size="large" icon="plus-small" onClick={connectProvider}>
-                  {language.t("command.provider.connect")}
+                <Button size="large" icon="providers" onClick={() => openSettings("providers")}>
+                  {language.t("settings.providers.title")}
                 </Button>
                 <Button size="large" variant="ghost" onClick={() => setStore("gettingStartedDismissed", true)}>
                   {language.t("toast.update.action.notYet")}

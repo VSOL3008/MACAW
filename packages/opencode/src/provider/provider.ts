@@ -7,8 +7,13 @@ import { Global } from "../global"
 import { Filesystem } from "../util/filesystem"
 import * as Ollama from "../util/ollama"
 import { Proxy } from "../util/proxy"
+import { Plugin } from "../plugin"
 import { ProviderTransform } from "./transform"
+import { ModelsDev } from "./models"
 import { ModelID, ProviderID } from "./schema"
+import { createAnthropic } from "@ai-sdk/anthropic"
+import { createGoogleGenerativeAI } from "@ai-sdk/google"
+import { createOpenAI } from "@ai-sdk/openai"
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
 import { type LanguageModelV3 } from "@ai-sdk/provider"
 import { NoSuchModelError } from "ai"
@@ -21,6 +26,9 @@ import z from "zod"
 type CompatibleSDK = {
   languageModel?: (model: string) => LanguageModelV3
   chatModel?: (model: string) => LanguageModelV3
+  chat?: (model: string) => LanguageModelV3
+  responses?: (model: string) => LanguageModelV3
+  messages?: (model: string) => LanguageModelV3
 }
 
 type Tag = {
@@ -37,6 +45,7 @@ type ModelCfg = z.infer<typeof Config.Model>
 
 type State = {
   providers: Record<ProviderID, Provider.Info>
+  catalog: Record<ProviderID, Provider.Info>
   models: Map<string, LanguageModelV3>
   sdk: Map<string, CompatibleSDK>
 }
@@ -92,6 +101,15 @@ function authKey(info?: Auth.Info) {
 function envKey(env?: string[]) {
   if (!env || env.length !== 1) return
   return Env.get(env[0])
+}
+
+function enabled(cfg: Config.Info, id: string) {
+  if (cfg.enabled_providers && !cfg.enabled_providers.includes(id)) return false
+  return !cfg.disabled_providers?.includes(id)
+}
+
+function envHit(env: string[]) {
+  return env.map((item) => Env.get(item)).find(Boolean)
 }
 
 function clean(id: string, value: string) {
@@ -178,7 +196,12 @@ function sortVariants(model: Provider.Model, cfg?: ModelCfg) {
   const base = ProviderTransform.variants(model)
   const extra = cfg?.variants ?? {}
   return Object.fromEntries(
-    Object.entries({ ...base, ...extra }).filter(([, value]) => !("disabled" in value) || value.disabled !== true),
+    Object.entries({ ...base, ...extra }).flatMap(([id, value]) => {
+      if ("disabled" in value && value.disabled === true) return []
+      const opts = { ...value }
+      delete opts.disabled
+      return [[id, { ...base[id], ...opts }]]
+    }),
   )
 }
 
@@ -235,10 +258,10 @@ function baseModel(
         write: 0,
       },
     },
-    limit: {
-      context: ctx(api),
-      output: 8_192,
-    },
+    limit:
+      opts?.providerID && opts.providerID !== OLLAMA_PROVIDER
+        ? { context: 0, output: 0 }
+        : { context: ctx(api), output: 8_192 },
     status: "active",
     options: {},
     headers: {},
@@ -314,6 +337,164 @@ function mergeModel(base: Provider.Model, cfg?: ModelCfg) {
   return model
 }
 
+function model(pid: ProviderID, item: ModelsDev.Provider, data: ModelsDev.Model): Provider.Model {
+  const input = data.modalities?.input ?? ["text"]
+  const output = data.modalities?.output ?? ["text"]
+  const cost = data.cost
+  const over = cost?.context_over_200k
+  const result: Provider.Model = {
+    id: ModelID.make(data.id),
+    providerID: pid,
+    api: {
+      id: data.id,
+      url: clean(pid, data.provider?.api ?? item.api ?? ""),
+      npm: data.provider?.npm ?? item.npm ?? OLLAMA_NPM,
+    },
+    name: data.name,
+    family: data.family,
+    capabilities: {
+      temperature: data.temperature,
+      reasoning: data.reasoning,
+      attachment: data.attachment || input.includes("image") || input.includes("pdf"),
+      toolcall: data.tool_call,
+      input: {
+        text: input.includes("text"),
+        audio: input.includes("audio"),
+        image: input.includes("image"),
+        video: input.includes("video"),
+        pdf: input.includes("pdf"),
+      },
+      output: {
+        text: output.includes("text"),
+        audio: output.includes("audio"),
+        image: output.includes("image"),
+        video: output.includes("video"),
+        pdf: output.includes("pdf"),
+      },
+      interleaved: data.interleaved ?? false,
+    },
+    cost: {
+      input: cost?.input ?? 0,
+      output: cost?.output ?? 0,
+      cache: {
+        read: cost?.cache_read ?? 0,
+        write: cost?.cache_write ?? 0,
+      },
+      ...(over
+        ? {
+            experimentalOver200K: {
+              input: over.input,
+              output: over.output,
+              cache: {
+                read: over.cache_read ?? 0,
+                write: over.cache_write ?? 0,
+              },
+            },
+          }
+        : {}),
+    },
+    limit: data.limit,
+    status: data.status ?? "active",
+    options: {},
+    headers: {},
+    release_date: data.release_date,
+    variants: {},
+  }
+  result.variants = sortVariants(result)
+  return result
+}
+
+function options(id: string, cfg?: Config.Provider) {
+  const base =
+    id === ProviderID.anthropic
+      ? {
+          headers: {
+            "anthropic-beta": "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14",
+          },
+        }
+      : id === ProviderID.openrouter
+        ? {
+            headers: {
+              "HTTP-Referer": "https://macaw.dev",
+              "X-Title": "MACAW",
+            },
+          }
+        : {}
+  const head = {
+    ...headers(base),
+    ...headers(cfg?.options ?? {}),
+  }
+  return {
+    includeUsage: true,
+    ...base,
+    ...(cfg?.options ?? {}),
+    ...(Object.keys(head).length ? { headers: head } : {}),
+  }
+}
+
+function compile(item: ModelsDev.Provider, cfg?: Config.Provider) {
+  const pid = ProviderID.make(item.id)
+  const models = Object.fromEntries(
+    Object.entries(item.models).map(([id, data]) => [id, mergeModel(model(pid, item, data), cfg?.models?.[id])]),
+  )
+  for (const [id, data] of Object.entries(cfg?.models ?? {})) {
+    if (models[id]) continue
+    models[id] = mergeModel(
+      baseModel(id, clean(pid, data.provider?.api ?? cfg?.options?.baseURL ?? cfg?.api ?? item.api ?? ""), undefined, {
+        providerID: pid,
+        npm: data.provider?.npm ?? cfg?.npm ?? item.npm ?? OLLAMA_NPM,
+        api: data.id ?? id,
+      }),
+      data,
+    )
+  }
+  return Object.fromEntries(
+    Object.entries(models).filter(([id]) => {
+      if (cfg?.whitelist && !cfg.whitelist.includes(id)) return false
+      return !cfg?.blacklist?.includes(id)
+    }),
+  )
+}
+
+async function buildCatalog(cfg: Config.Info, saved: Record<string, Auth.Info>) {
+  const data = await ModelsDev.get()
+  const catalog: Record<ProviderID, Provider.Info> = {}
+  const providers: Record<ProviderID, Provider.Info> = {}
+  for (const [id, item] of Object.entries(data)) {
+    if (!enabled(cfg, id)) continue
+    const pid = ProviderID.make(id)
+    const custom = cfg.provider?.[id]
+    const env = custom?.env ?? item.env
+    const hit = envHit(env)
+    const auth = saved[id]
+    const key = pick(custom?.options?.apiKey, authKey(auth), env.length === 1 ? hit : undefined)
+    const models = compile(item, custom)
+    if (Object.keys(models).length === 0) continue
+    const info: Provider.Info = {
+      id: pid,
+      name: custom?.name ?? item.name,
+      source: custom ? "config" : auth ? "api" : hit ? "env" : "custom",
+      env,
+      key,
+      options: options(id, custom),
+      models,
+    }
+    catalog[pid] = info
+    const connected = id === ProviderID.opencode || Boolean(custom || auth || hit)
+    if (!connected) continue
+    const active = {
+      ...info,
+      models: { ...info.models },
+    }
+    if (id === ProviderID.opencode && !key) {
+      active.key = "public"
+      active.models = Object.fromEntries(Object.entries(active.models).filter(([, entry]) => entry.cost.input === 0))
+    }
+    providers[pid] = active
+  }
+  return { catalog, providers }
+}
+
 const SHOW_CACHE = new Map<string, { modified_at?: string; capabilities: string[] }>()
 
 async function showCapabilities(url: string, tag: Tag, headers?: HeadersInit): Promise<string[]> {
@@ -363,7 +544,7 @@ async function discover(url: string, key?: string) {
   const enriched = await Promise.all(
     tags.data.models.map(async (tag) => ({
       ...tag,
-      capabilities: await showCapabilities(url, tag, headers),
+      capabilities: vision(tag.name, tag) ? ["vision"] : await showCapabilities(url, tag, headers),
     })),
   )
   return enriched
@@ -453,10 +634,23 @@ async function buildOllama(cfg: Config.Info, saved?: Auth.Info) {
 }
 
 async function build(cfg: Config.Info, saved: Record<string, Auth.Info>) {
+  const state = await buildCatalog(cfg, saved)
+  const custom = Object.fromEntries(
+    Object.entries(buildConfig(cfg, saved)).filter(([id]) => enabled(cfg, id) && !state.catalog[ProviderID.make(id)]),
+  ) as Record<ProviderID, Provider.Info>
+  const ollama = enabled(cfg, OLLAMA_PROVIDER) ? await buildOllama(cfg, saved[OLLAMA_PROVIDER]) : {}
   return {
-    ...(await buildOllama(cfg, saved[OLLAMA_PROVIDER])),
-    ...buildConfig(cfg, saved),
-  } satisfies Record<ProviderID, Provider.Info>
+    catalog: {
+      ...state.catalog,
+      ...custom,
+      ...ollama,
+    },
+    providers: {
+      ...state.providers,
+      ...custom,
+      ...ollama,
+    },
+  }
 }
 
 function headers(opts: Record<string, unknown>) {
@@ -558,6 +752,7 @@ export namespace Provider {
 
   export interface Interface {
     readonly list: () => Effect.Effect<Record<ProviderID, Info>>
+    readonly all: () => Effect.Effect<Record<ProviderID, Info>>
     readonly getProvider: (providerID: ProviderID) => Effect.Effect<Info>
     readonly getModel: (providerID: ProviderID, modelID: ModelID) => Effect.Effect<Model>
     readonly getLanguage: (model: Model) => Effect.Effect<LanguageModelV3>
@@ -567,6 +762,7 @@ export namespace Provider {
     ) => Effect.Effect<{ providerID: ProviderID; modelID: string } | undefined>
     readonly getSmallModel: (providerID: ProviderID) => Effect.Effect<Model | undefined>
     readonly defaultModel: () => Effect.Effect<{ providerID: ProviderID; modelID: ModelID }>
+    readonly reset: () => Effect.Effect<void>
   }
 
   export class Service extends ServiceMap.Service<Service, Interface>()("@macaw/Provider") {}
@@ -581,26 +777,32 @@ export namespace Provider {
         Effect.gen(function* () {
           const cfg = yield* config.get()
           const saved = yield* auth.all().pipe(Effect.orDie)
-          const providers = yield* Effect.promise(() => build(cfg, saved))
+          const result = yield* Effect.promise(() => build(cfg, saved))
           return {
-            providers,
+            providers: result.providers,
+            catalog: result.catalog,
             models: new Map<string, LanguageModelV3>(),
             sdk: new Map<string, CompatibleSDK>(),
           }
         }),
       )
 
+      const reset = Effect.fn("Provider.reset")(() => InstanceState.invalidate(state))
       const list = Effect.fn("Provider.list")(() => InstanceState.use(state, (s) => s.providers))
+      const all = Effect.fn("Provider.all")(() => InstanceState.use(state, (s) => s.catalog))
 
       const getProvider = Effect.fn("Provider.getProvider")(function* (providerID: ProviderID) {
         const s = yield* InstanceState.get(state)
-        const provider = s.providers[providerID]
-        if (provider) return provider
-        throw new Error(`Provider not found: ${providerID}`)
+        return s.providers[providerID] as Info
       })
 
       const getModel = Effect.fn("Provider.getModel")(function* (providerID: ProviderID, modelID: ModelID) {
         const provider = yield* getProvider(providerID)
+        if (!provider) {
+          const s = yield* InstanceState.get(state)
+          const suggestions = fuzzysort.go(providerID, Object.keys(s.providers), { limit: 3 }).map((item) => item.target)
+          throw new ModelNotFoundError({ providerID, modelID, suggestions })
+        }
         const info = provider.models[modelID]
         if (info) return info
         const suggestions = fuzzysort.go(modelID, Object.keys(provider.models), { limit: 3 }).map((item) => item.target)
@@ -613,7 +815,7 @@ export namespace Provider {
         if (existing) return existing
         return yield* Effect.promise(async () => {
           const provider = s.providers[model.providerID]
-          const url = model.api.url || String(provider.options.baseURL ?? OLLAMA_URL)
+          const url = clean(model.providerID, String(provider.options.baseURL ?? model.api.url ?? ""))
           const head = {
             ...headers(provider.options),
             ...model.headers,
@@ -624,21 +826,58 @@ export namespace Provider {
             key: provider.key,
             headers: head,
           })
-          let sdk = s.sdk.get(cacheKey)
-          if (!sdk) {
-            sdk = createOpenAICompatible({
-              name: model.providerID,
-              ...(provider.options ?? {}),
-              baseURL: url,
-              apiKey: provider.key,
-              headers: head,
-              fetch: net,
-              transformRequestBody: (body) => scrub(model.providerID, url, body),
-            }) as CompatibleSDK
-            s.sdk.set(cacheKey, sdk)
-          }
+          const cached = s.sdk.get(cacheKey)
+          const sdk: CompatibleSDK =
+            cached ??
+            (model.api.npm === "@ai-sdk/openai"
+              ? createOpenAI({
+                  ...provider.options,
+                  baseURL: url || undefined,
+                  apiKey: provider.key,
+                  headers: head,
+                  fetch: net,
+                })
+              : model.api.npm === "@ai-sdk/google"
+                ? createGoogleGenerativeAI({
+                    ...provider.options,
+                    baseURL: url || undefined,
+                    apiKey: provider.key,
+                    headers: head,
+                    fetch: net,
+                  })
+                : model.api.npm === "@ai-sdk/anthropic"
+                  ? createAnthropic({
+                      ...provider.options,
+                      baseURL: url || undefined,
+                      apiKey: provider.key,
+                      headers: head,
+                      fetch: net,
+                    })
+                  : createOpenAICompatible({
+                      name: model.providerID,
+                      ...provider.options,
+                      baseURL: url,
+                      apiKey: provider.key,
+                      headers: head,
+                      fetch: net,
+                      transformRequestBody: (body) => scrub(model.providerID, url, body),
+                    }))
+          if (!cached) s.sdk.set(cacheKey, sdk)
           try {
-            const language = sdk.languageModel?.(model.api.id) ?? sdk.chatModel?.(model.api.id)
+            const isResponsesModel =
+              model.family === "gpt-sol" ||
+              model.api.id.includes("sol") ||
+              (model.api.id.startsWith("gpt-5") && !model.api.id.includes("-chat")) ||
+              model.api.id.startsWith("o3") ||
+              model.api.id.startsWith("o4")
+
+            const language =
+              (isResponsesModel && sdk.responses ? sdk.responses(model.api.id) : undefined) ??
+              sdk.languageModel?.(model.api.id) ??
+              sdk.chatModel?.(model.api.id) ??
+              sdk.chat?.(model.api.id) ??
+              sdk.responses?.(model.api.id) ??
+              sdk.messages?.(model.api.id)
             if (!language) throw new Error("Provider client did not expose a chat model")
             s.models.set(modelKey(model), language)
             return language
@@ -653,6 +892,7 @@ export namespace Provider {
 
       const closest = Effect.fn("Provider.closest")(function* (providerID: ProviderID, query: string[]) {
         const provider = yield* getProvider(providerID)
+        if (!provider) return
         const ids = Object.keys(provider.models)
         for (const item of query) {
           const match = fuzzysort.go(item, ids, { limit: 1 })[0]
@@ -661,15 +901,26 @@ export namespace Provider {
       })
 
       const getSmallModel = Effect.fn("Provider.getSmallModel")(function* (providerID: ProviderID) {
+        const cfg = yield* config.get()
+        if (cfg.small_model) {
+          const parsed = parseModel(cfg.small_model)
+          return yield* getModel(parsed.providerID, parsed.modelID)
+        }
         const provider = yield* getProvider(providerID)
+        if (!provider) return
         const match = sort(Object.values(provider.models)).find((item) => keyword(item.id, SMALL_HINTS))
         return match ?? sort(Object.values(provider.models))[0]
       })
 
       const defaultModel = Effect.fn("Provider.defaultModel")(function* () {
         const cfg = yield* config.get()
-        if (cfg.model) return parseModel(cfg.model)
-        const provider = yield* getProvider(OLLAMA_PROVIDER)
+        const s = yield* InstanceState.get(state)
+        if (cfg.model) {
+          const parsed = parseModel(cfg.model)
+          if (s.providers[parsed.providerID]?.models[parsed.modelID]) return parsed
+          const small = yield* getSmallModel(parsed.providerID).pipe(Effect.catchDefect(() => Effect.void))
+          if (small) return { providerID: small.providerID, modelID: small.id }
+        }
         const recent = yield* Effect.promise(() =>
           Filesystem.readJson<{
             recent?: { providerID: ProviderID; modelID: ModelID }[]
@@ -678,26 +929,37 @@ export namespace Provider {
             .catch(() => []),
         )
         for (const item of recent) {
-          if (item.providerID !== provider.id) continue
-          if (provider.models[item.modelID]) return item
+          if (s.providers[item.providerID]?.models[item.modelID]) return item
         }
+        const provider = Object.values(s.providers).find((item) => Object.keys(item.models).length > 0)
+        if (!provider) throw new Error("No AI providers available")
         const [model] = sort(Object.values(provider.models))
-        if (!model) throw new Error("No Ollama models available")
         return { providerID: provider.id, modelID: model.id }
       })
 
-      return Service.of({ list, getProvider, getModel, getLanguage, closest, getSmallModel, defaultModel })
+      return Service.of({ list, all, getProvider, getModel, getLanguage, closest, getSmallModel, defaultModel, reset })
     }),
   )
 
   export const defaultLayer = Layer.suspend(() =>
-    layer.pipe(Layer.provide(Config.defaultLayer), Layer.provide(Auth.defaultLayer)),
+    layer.pipe(
+      Layer.provide(Config.defaultLayer),
+      Layer.provide(Auth.defaultLayer),
+    ),
   )
 
   const { runPromise } = makeRuntime(Service, defaultLayer)
 
+  export async function reset() {
+    return runPromise((svc) => svc.reset())
+  }
+
   export async function list() {
     return runPromise((svc) => svc.list())
+  }
+
+  export async function all() {
+    return runPromise((svc) => svc.all())
   }
 
   export async function getProvider(providerID: ProviderID) {

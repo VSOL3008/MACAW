@@ -628,13 +628,13 @@ describe("session.llm.stream", () => {
     })
   })
 
-  test("sends responses API payload for OpenAI models", async () => {
+  test.each(["gpt-5.5", "gpt-5.6-sol"])("sends reasoning and tools over Responses API for %s", async (modelID) => {
     const server = state.server
     if (!server) {
       throw new Error("Server not initialized")
     }
 
-    const source = await loadFixture("openai", "gpt-5.2")
+    const source = await loadFixture("openai", modelID)
     const model = source.model
 
     const responseChunks = [
@@ -700,7 +700,7 @@ describe("session.llm.stream", () => {
       directory: tmp.path,
       fn: async () => {
         const resolved = await Provider.getModel(ProviderID.openai, ModelID.make(model.id))
-        const sessionID = SessionID.make("session-test-2")
+        const sessionID = SessionID.make(`session-${modelID}`)
         const agent = {
           name: "test",
           mode: "primary",
@@ -710,12 +710,13 @@ describe("session.llm.stream", () => {
         } satisfies Agent.Info
 
         const user = {
-          id: MessageID.make("user-2"),
+          id: MessageID.make(`user-${modelID}`),
           sessionID,
           role: "user",
           time: { created: Date.now() },
           agent: agent.name,
           model: { providerID: ProviderID.make("openai"), modelID: resolved.id, variant: "high" },
+          tools: { question: true },
         } satisfies MessageV2.User
 
         const stream = await LLM.stream({
@@ -725,8 +726,15 @@ describe("session.llm.stream", () => {
           agent,
           system: ["You are a helpful assistant."],
           abort: new AbortController().signal,
+          permission: [{ permission: "question", pattern: "*", action: "allow" }],
           messages: [{ role: "user", content: "Hello" }],
-          tools: {},
+          tools: {
+            question: tool({
+              description: "Ask a question",
+              inputSchema: z.object({}),
+              execute: async () => ({ output: "" }),
+            }),
+          },
         })
 
         for await (const _ of stream.fullStream) {
@@ -739,9 +747,9 @@ describe("session.llm.stream", () => {
         expect(body.model).toBe(resolved.api.id)
         expect(body.stream).toBe(true)
         expect((body.reasoning as { effort?: string } | undefined)?.effort).toBe("high")
-
-        const maxTokens = body.max_output_tokens as number | undefined
-        expect(maxTokens).toBe(undefined) // match codex cli behavior
+        expect((body.tools as Array<{ name?: string }> | undefined)?.some((item) => item.name === "question")).toBe(
+          true,
+        )
       },
     })
   })
@@ -870,7 +878,7 @@ describe("session.llm.stream", () => {
     })
   })
 
-  test("sends messages API payload for Anthropic Compatible models", async () => {
+  test("sends messages API payload for Anthropic models", async () => {
     const server = state.server
     if (!server) {
       throw new Error("Server not initialized")
@@ -983,7 +991,7 @@ describe("session.llm.stream", () => {
         expect(body.model).toBe(resolved.api.id)
         expect(body.max_tokens).toBe(ProviderTransform.maxOutputTokens(resolved))
         expect(body.temperature).toBe(0.4)
-        expect(body.top_p).toBe(0.9)
+        expect(body.top_p).toBeUndefined()
       },
     })
   })

@@ -8,15 +8,16 @@ import { useLocal } from "@/context/local"
 import { popularProviders } from "@/hooks/use-providers"
 import { useLanguage } from "@/context/language"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
-import { DialogSelectProvider } from "./dialog-select-provider"
 
 export const DialogManageModels: Component = () => {
   const local = useLocal()
   const language = useLanguage()
   const dialog = useDialog()
 
-  const handleConnectProvider = () => {
-    dialog.show(() => <DialogSelectProvider />)
+  const settings = () => {
+    void import("./dialog-settings").then((x) => {
+      dialog.show(() => <x.DialogSettings tab="providers" />)
+    })
   }
   const providerRank = (id: string) => popularProviders.indexOf(id)
   const providerList = (providerID: string) => local.model.list().filter((x) => x.provider.id === providerID)
@@ -33,8 +34,8 @@ export const DialogManageModels: Component = () => {
       title={language.t("dialog.model.manage")}
       description={language.t("dialog.model.manage.description")}
       action={
-        <Button class="h-7 -my-1 text-14-medium" icon="plus-small" tabIndex={-1} onClick={handleConnectProvider}>
-          {language.t("command.provider.connect")}
+        <Button class="h-7 -my-1 text-14-medium" icon="providers" tabIndex={-1} onClick={settings}>
+          {language.t("command.settings.open")}
         </Button>
       }
     >

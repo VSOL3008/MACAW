@@ -2409,7 +2409,10 @@ test("plugin config providers persist after instance dispose", async () => {
 
   const second = await Instance.provide({
     directory: tmp.path,
-    fn: async () => Provider.list(),
+    fn: async () => {
+      await Plugin.init()
+      return Provider.list()
+    },
   })
   expect(second[ProviderID.make("demo")]).toBeDefined()
   expect(second[ProviderID.make("demo")].models[ModelID.make("chat")]).toBeDefined()
@@ -2443,6 +2446,7 @@ test("plugin config enabled and disabled providers are honored", async () => {
     init: async () => {
       Env.set("ANTHROPIC_API_KEY", "test-anthropic-key")
       Env.set("OPENAI_API_KEY", "test-openai-key")
+      await Plugin.init()
     },
     fn: async () => {
       const providers = await Provider.list()
