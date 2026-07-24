@@ -1,7 +1,7 @@
 import { parsePatchFiles, type FileDiffMetadata } from "@pierre/diffs"
-import { sampledChecksum } from "@opencode-ai/util/encode"
+import { sampledChecksum } from "@macaw/util/encode"
 import { formatPatch, structuredPatch } from "diff"
-import type { SnapshotFileDiff, VcsFileDiff } from "@opencode-ai/sdk/v2"
+import type { SnapshotFileDiff, VcsFileDiff } from "@macaw/sdk/v2"
 
 type LegacyDiff = {
   file: string
